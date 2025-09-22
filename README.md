@@ -16,6 +16,7 @@
 
 
 ![High-Level Architecture](data/agent-hld.png)
+<img width="618" height="523" alt="Screenshot 2025-09-23 at 4 46 41 AM" src="https://github.com/user-attachments/assets/c2784f5e-1604-4730-b55b-7ddc7e028afe" />
 
 
 
