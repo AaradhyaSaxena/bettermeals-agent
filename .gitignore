@@ -1,3 +1,4 @@
 groq_env/
 *.env
 data/
+.ipynb_checkpoints/
