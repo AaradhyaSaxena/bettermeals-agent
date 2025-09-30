@@ -28,7 +28,7 @@ Households need a reliable way to go from personal health context (labs, prefere
 * **WhatsApp (Meta Cloud API)** → inbound/outbound channel that users and cooks already use.
 * **n8n (Integration Layer)** → receives webhooks, sanitizes & deduplicates messages, maps phone → `thread_id`, and forwards to the orchestrator; sends replies/media back to WhatsApp.
 * **LangGraph Orchestrator** → houses the **Supervisor** and **specialized agents**, defines **state**, **edges**, **memory**, **streaming**, and **interrupts**.
-* **BetterMeals API (`api.bettermeals.in`)** → the **source of truth** for meal planning, scoring, onboarding, and orders. LLMs never invent meals or metrics — they call these APIs.
+* **BetterMeals API (`api.bettermeals.in`)** → the **source of truth** for meal planning, scoring, onboarding, and orders. LLMs never invent meals or metrics — they call these APIs. *(Currently using mocked responses for development)*
 
 ---
 
@@ -216,7 +216,7 @@ We prefer **clear, small messages** over walls of text and always **preserve use
 
 ## 12) BetterMeals API Contracts (essentials)
 
-> The agents are **thin clients** over these APIs. All nutrition and order truth lives here.
+> The agents are **thin clients** over these APIs. All nutrition and order truth lives here. *(Currently mocked for development)*
 
 * **POST `/onboarding/household|resident`**
   Request: structured profile/preferences.
@@ -349,7 +349,49 @@ sequenceDiagram
 
 ---
 
-## 18) Principles to Keep Us Honest
+## 18) Current Implementation Status
+
+### ✅ What's Working
+- **LangGraph Supervisor**: Fully implemented using `langgraph_supervisor` package (Option A)
+- **Worker Agents**: All 5 agents (Onboarding, Recommender, Scorer, Order, Cook Update) are implemented
+- **HTTP Tools**: Complete tool wrappers for all API endpoints with proper type hints
+- **State Management**: TypedDict state with proper persistence and checkpoints
+- **Webhook Endpoint**: FastAPI webhook at `/webhooks/whatsapp` with proper request/response handling
+- **Postman Collection**: Complete test collection at `test_postman_collection.json`
+
+### 🔄 Currently Mocked (Ready for Real APIs)
+- **All BetterMeals API calls**: Tools are implemented but return mock data
+- **API Endpoints**: 
+  - `POST /onboarding/household|resident`
+  - `POST /meals/recommendations`
+  - `POST /meals/score`
+  - `POST /orders/build_cart`
+  - `POST /orders/substitute`
+  - `POST /orders/checkout`
+  - `GET /orders/status`
+
+### 🚧 To Complete
+- **Real API Integration**: Uncomment API calls in tool files when `api.bettermeals.in` is ready
+- **Enhanced Testing**: Add comprehensive test suite for all agents and workflows
+- **Error Handling**: Implement retry logic and graceful degradation
+- **Streaming**: Add token-level streaming for better UX
+- **Production Deployment**: Docker setup and environment configuration
+
+### 🧪 Testing
+```bash
+# Run existing tests
+pytest -q
+
+# Test the webhook locally
+uvicorn src.bettermeals.entrypoints.fastapi_app:app --port 8000
+
+# Use Postman collection
+# Import test_postman_collection.json and set baseUrl to http://localhost:8000
+```
+
+---
+
+## 19) Principles to Keep Us Honest
 
 1. **APIs own the truth** — LLMs orchestrate, summarize, and ask for approvals.
 2. **Single decision-maker** — the Supervisor routes one worker at a time.
