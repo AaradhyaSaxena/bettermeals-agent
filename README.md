@@ -1,4 +1,4 @@
-# BetterMeals — AI Butler
+# BetterMeals :: AI Butler
 ### Kitchen on Autopilot
 
 ## Architecture & Behavior Overview
