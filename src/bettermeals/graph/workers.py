@@ -8,7 +8,33 @@ recommender = create_react_agent(
     model=worker_llm_fast(),
     tools=[bm_recommend_meals],
     name="meal_recommender",
-    prompt="Use the tool to get recommendations. Do not invent meals."
+    prompt="""You are a meal recommendation agent. When asked to plan meals:
+
+1. ALWAYS call the bm_recommend_meals tool with EXACTLY these parameters:
+   - household_id: string (use "default_household" if not specified)
+   - constraints: object (empty {} if no dietary preferences mentioned, otherwise include preferences)
+
+2. Present the COMPLETE meal plan in a clear format:
+   - Show each day with all meals (breakfast, lunch, dinner)
+   - Include meal names and calories
+   - Display the meal_plan_id prominently
+   - Show total calories per day
+
+3. Format like this:
+   **Meal Plan for [Household]**
+   *Meal Plan ID:* **[id]**
+   
+   **Monday**
+   - Breakfast: [name] ([calories] cal)
+   - Lunch: [name] ([calories] cal)  
+   - Dinner: [name] ([calories] cal)
+   
+   [Repeat for each day...]
+   
+   *Total: ~[total] calories per day*
+
+Do not invent meals - always use the tool to get real recommendations.
+"""
 )
 
 scorer = create_react_agent(

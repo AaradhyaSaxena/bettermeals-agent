@@ -5,11 +5,19 @@ import uuid
 from datetime import datetime, timedelta
 
 @tool("bm_recommend_meals", description="Call BetterMeals recommendations API.")
-async def bm_recommend_meals(household_id: str, date_range: dict, constraints: dict) -> dict:
+async def bm_recommend_meals(
+    household_id: str, 
+    constraints: dict = {}
+) -> dict:
     """Return a recommended meal plan for a household/date range given constraints."""
+    
+    # Use household_id as provided, or default to "default_household"
+    if not household_id:
+        household_id = "default_household"
+    
     # TODO: Uncomment when API is working
     # return await post_json(f"{settings.bm_api_base}/meals/weekly_recommendations",
-    #                        {"household_id": household_id, "date_range": date_range, "constraints": constraints})
+    #                        {"household_id": household_id, "constraints": constraints})
     
     # Mock response for meal recommendations
     meal_plan_id = str(uuid.uuid4())
@@ -17,7 +25,6 @@ async def bm_recommend_meals(household_id: str, date_range: dict, constraints: d
         "success": True,
         "meal_plan_id": meal_plan_id,
         "household_id": household_id,
-        "date_range": date_range,
         "constraints": constraints,
         "recommendations": [
             {
@@ -34,6 +41,46 @@ async def bm_recommend_meals(household_id: str, date_range: dict, constraints: d
                     {"type": "breakfast", "name": "Greek Yogurt Parfait", "calories": 280},
                     {"type": "lunch", "name": "Turkey Wrap", "calories": 380},
                     {"type": "dinner", "name": "Vegetable Stir Fry", "calories": 420}
+                ]
+            },
+            {
+                "day": "Wednesday",
+                "meals": [
+                    {"type": "breakfast", "name": "Avocado Toast", "calories": 350},
+                    {"type": "lunch", "name": "Quinoa Buddha Bowl", "calories": 420},
+                    {"type": "dinner", "name": "Baked Cod with Sweet Potato", "calories": 480}
+                ]
+            },
+            {
+                "day": "Thursday",
+                "meals": [
+                    {"type": "breakfast", "name": "Smoothie Bowl", "calories": 300},
+                    {"type": "lunch", "name": "Mediterranean Wrap", "calories": 400},
+                    {"type": "dinner", "name": "Chicken Tikka Masala", "calories": 550}
+                ]
+            },
+            {
+                "day": "Friday",
+                "meals": [
+                    {"type": "breakfast", "name": "Pancakes with Maple Syrup", "calories": 380},
+                    {"type": "lunch", "name": "Caesar Salad", "calories": 350},
+                    {"type": "dinner", "name": "Grilled Steak with Asparagus", "calories": 520}
+                ]
+            },
+            {
+                "day": "Saturday",
+                "meals": [
+                    {"type": "breakfast", "name": "Eggs Benedict", "calories": 450},
+                    {"type": "lunch", "name": "Fish Tacos", "calories": 420},
+                    {"type": "dinner", "name": "Pasta Primavera", "calories": 480}
+                ]
+            },
+            {
+                "day": "Sunday",
+                "meals": [
+                    {"type": "breakfast", "name": "French Toast", "calories": 400},
+                    {"type": "lunch", "name": "Grilled Cheese Sandwich", "calories": 380},
+                    {"type": "dinner", "name": "Roast Chicken with Vegetables", "calories": 500}
                 ]
             }
         ],
