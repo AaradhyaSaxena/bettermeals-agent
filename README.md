@@ -1,6 +1,8 @@
 # BetterMeals :: AI Butler
 ### Kitchen on Autopilot
 
+BetterMeals is an AI food assistant that runs your kitchen on autopilot. It takes lab results and household preferences, creates personalised meal plans, auto-generates grocery carts, and even briefs your cook daily via WhatsApp or voice. It adapts to different needs within the same home - like athletes, diabetics, or recovering patients - so everyone eats right without the daily hassle.
+
 ## Architecture & Behavior Overview
 
 **One-line:** WhatsApp-first, stateful automation that turns **labs + preferences → meal plan → grocery cart → (optional) checkout**, with **human approvals**, **durable execution**, and **all domain logic behind APIs** (`api.bettermeals.in`).
