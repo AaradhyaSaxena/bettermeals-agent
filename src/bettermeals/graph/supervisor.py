@@ -4,7 +4,7 @@ from .workers import recommender, scorer, order_agent, onboarding, cook_update
 
 supervisor = create_react_agent(
     model=supervisor_llm(),
-    tools=[onboarding, recommender, scorer, order_agent, cook_update],
+    # tools=[onboarding, recommender, scorer, order_agent, cook_update],
     name="supervisor",
     prompt=open(__file__.replace("supervisor.py","prompts/supervisor_prompt.txt")).read()
 )

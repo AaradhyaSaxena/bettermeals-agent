@@ -1,20 +1,17 @@
-from langgraph.graph import StateGraph, START, END
-from .state import State
-from .supervisor import supervisor
+from pathlib import Path
+from langgraph_supervisor import create_supervisor
+from ..llms.groq import supervisor_llm
 from .workers import recommender, scorer, order_agent, onboarding, cook_update
 
+PROMPT = (Path(__file__).parent / "prompts" / "supervisor_prompt.txt").read_text()
+
 def build_graph(checkpointer=None, store=None):
-    g = StateGraph(State)
-    g.add_node("supervisor", supervisor)
-    g.add_node("meal_recommender", recommender)
-    g.add_node("meal_scorer", scorer)
-    g.add_node("order", order_agent)
-    g.add_node("onboarding", onboarding)
-    g.add_node("cook_update", cook_update)
-
-    g.add_edge(START, "supervisor")
-    for w in ["meal_recommender","meal_scorer","order","onboarding","cook_update"]:
-        g.add_edge(w, "supervisor")
-    g.add_edge("supervisor", END)
-
-    return g.compile(checkpointer=checkpointer, store=store)
+    workflow = create_supervisor(
+        [onboarding, recommender, scorer, order_agent, cook_update],
+        model=supervisor_llm(),
+        prompt=PROMPT,
+        # optional knobs:
+        # output_mode="last_message",
+        # handoff_tool_prefix="delegate_to",
+    )
+    return workflow.compile(checkpointer=checkpointer, store=store)
