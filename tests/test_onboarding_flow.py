@@ -1,10 +1,10 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from src.bettermeals.graph.onboarding import OnboardingService, OnboardingStep
+from src.bettermeals.graph.onboarding import OnboardingService, OnboardingStep, GenericUserOnboarding, ReferralUserOnboarding
 
 
-class TestOnboardingFlow:
-    """Test the structured onboarding flow"""
+class TestGenericOnboardingFlow:
+    """Test the structured onboarding flow for generic users"""
 
     def setup_method(self):
         """Set up test fixtures"""
@@ -25,13 +25,13 @@ class TestOnboardingFlow:
         assert "May I know your name" in response["reply"]
         
         # Check that step was updated
-        current_step = self.onboarding_service._get_current_onboarding_step(self.test_phone)
+        current_step = self.onboarding_service.generic_onboarding._get_current_onboarding_step(self.test_phone)
         assert current_step == OnboardingStep.NAME_COLLECTION
 
     def test_name_collection_step(self):
         """Test name collection step"""
         # First set the step to name collection
-        self.onboarding_service._set_onboarding_step(self.test_phone, OnboardingStep.NAME_COLLECTION)
+        self.onboarding_service.generic_onboarding._set_onboarding_step(self.test_phone, OnboardingStep.NAME_COLLECTION)
         
         payload = {
             "phone_number": self.test_phone,
@@ -45,17 +45,17 @@ class TestOnboardingFlow:
         assert "What are you looking for from BetterMeals?" in response["reply"]
         
         # Check that step was updated
-        current_step = self.onboarding_service._get_current_onboarding_step(self.test_phone)
+        current_step = self.onboarding_service.generic_onboarding._get_current_onboarding_step(self.test_phone)
         assert current_step == OnboardingStep.NEEDS_ASSESSMENT
         
         # Check that name was stored
-        assert self.onboarding_service._user_data[self.test_phone]["name"] == "Shiwani"
+        assert self.onboarding_service.generic_onboarding._get_user_data(self.test_phone)["name"] == "Shiwani"
 
     def test_needs_assessment_step(self):
         """Test needs assessment step"""
         # Set up previous step data
-        self.onboarding_service._set_onboarding_step(self.test_phone, OnboardingStep.NEEDS_ASSESSMENT)
-        self.onboarding_service._user_data = {self.test_phone: {"name": "Shiwani"}}
+        self.onboarding_service.generic_onboarding._set_onboarding_step(self.test_phone, OnboardingStep.NEEDS_ASSESSMENT)
+        self.onboarding_service.generic_onboarding._set_user_data(self.test_phone, {"name": "Shiwani"})
         
         payload = {
             "phone_number": self.test_phone,
@@ -69,14 +69,14 @@ class TestOnboardingFlow:
         assert "stressful for you" in response["reply"]
         
         # Check that step was updated
-        current_step = self.onboarding_service._get_current_onboarding_step(self.test_phone)
+        current_step = self.onboarding_service.generic_onboarding._get_current_onboarding_step(self.test_phone)
         assert current_step == OnboardingStep.STRESS_POINTS
 
     def test_stress_points_step(self):
         """Test stress points assessment"""
         # Set up previous step data
-        self.onboarding_service._set_onboarding_step(self.test_phone, OnboardingStep.STRESS_POINTS)
-        self.onboarding_service._user_data = {self.test_phone: {"name": "Shiwani"}}
+        self.onboarding_service.generic_onboarding._set_onboarding_step(self.test_phone, OnboardingStep.STRESS_POINTS)
+        self.onboarding_service.generic_onboarding._set_user_data(self.test_phone, {"name": "Shiwani"})
         
         payload = {
             "phone_number": self.test_phone,
@@ -90,14 +90,14 @@ class TestOnboardingFlow:
         assert "tricky about coordinating" in response["reply"]
         
         # Check that step was updated
-        current_step = self.onboarding_service._get_current_onboarding_step(self.test_phone)
+        current_step = self.onboarding_service.generic_onboarding._get_current_onboarding_step(self.test_phone)
         assert current_step == OnboardingStep.COOK_COORDINATION_DETAILS
 
     def test_cook_coordination_details_step(self):
         """Test cook coordination details step"""
         # Set up previous step data
-        self.onboarding_service._set_onboarding_step(self.test_phone, OnboardingStep.COOK_COORDINATION_DETAILS)
-        self.onboarding_service._user_data = {self.test_phone: {"name": "Shiwani"}}
+        self.onboarding_service.generic_onboarding._set_onboarding_step(self.test_phone, OnboardingStep.COOK_COORDINATION_DETAILS)
+        self.onboarding_service.generic_onboarding._set_user_data(self.test_phone, {"name": "Shiwani"})
         
         payload = {
             "phone_number": self.test_phone,
@@ -111,14 +111,14 @@ class TestOnboardingFlow:
         assert "Do you have a cook at home right now?" in response["reply"]
         
         # Check that step was updated
-        current_step = self.onboarding_service._get_current_onboarding_step(self.test_phone)
+        current_step = self.onboarding_service.generic_onboarding._get_current_onboarding_step(self.test_phone)
         assert current_step == OnboardingStep.COOK_STATUS
 
     def test_cook_status_step_with_cook(self):
         """Test cook status step when user has a cook"""
         # Set up previous step data
-        self.onboarding_service._set_onboarding_step(self.test_phone, OnboardingStep.COOK_STATUS)
-        self.onboarding_service._user_data = {self.test_phone: {"name": "Shiwani"}}
+        self.onboarding_service.generic_onboarding._set_onboarding_step(self.test_phone, OnboardingStep.COOK_STATUS)
+        self.onboarding_service.generic_onboarding._set_user_data(self.test_phone, {"name": "Shiwani"})
         
         payload = {
             "phone_number": self.test_phone,
@@ -132,14 +132,14 @@ class TestOnboardingFlow:
         assert "₹49" in response["reply"]
         
         # Check that step was updated
-        current_step = self.onboarding_service._get_current_onboarding_step(self.test_phone)
+        current_step = self.onboarding_service.generic_onboarding._get_current_onboarding_step(self.test_phone)
         assert current_step == OnboardingStep.TRIAL_OFFER
 
     def test_cook_status_step_without_cook(self):
         """Test cook status step when user doesn't have a cook"""
         # Set up previous step data
-        self.onboarding_service._set_onboarding_step(self.test_phone, OnboardingStep.COOK_STATUS)
-        self.onboarding_service._user_data = {self.test_phone: {"name": "Shiwani"}}
+        self.onboarding_service.generic_onboarding._set_onboarding_step(self.test_phone, OnboardingStep.COOK_STATUS)
+        self.onboarding_service.generic_onboarding._set_user_data(self.test_phone, {"name": "Shiwani"})
         
         payload = {
             "phone_number": self.test_phone,
@@ -154,14 +154,14 @@ class TestOnboardingFlow:
         assert "₹49" in response["reply"]
         
         # Check that step was updated
-        current_step = self.onboarding_service._get_current_onboarding_step(self.test_phone)
+        current_step = self.onboarding_service.generic_onboarding._get_current_onboarding_step(self.test_phone)
         assert current_step == OnboardingStep.TRIAL_OFFER
 
     def test_trial_offer_acceptance(self):
         """Test trial offer acceptance"""
         # Set up previous step data
-        self.onboarding_service._set_onboarding_step(self.test_phone, OnboardingStep.TRIAL_OFFER)
-        self.onboarding_service._user_data = {self.test_phone: {"name": "Shiwani"}}
+        self.onboarding_service.generic_onboarding._set_onboarding_step(self.test_phone, OnboardingStep.TRIAL_OFFER)
+        self.onboarding_service.generic_onboarding._set_user_data(self.test_phone, {"name": "Shiwani"})
         
         payload = {
             "phone_number": self.test_phone,
@@ -175,14 +175,14 @@ class TestOnboardingFlow:
         assert "confirm your name" in response["reply"]
         
         # Check that step was updated
-        current_step = self.onboarding_service._get_current_onboarding_step(self.test_phone)
+        current_step = self.onboarding_service.generic_onboarding._get_current_onboarding_step(self.test_phone)
         assert current_step == OnboardingStep.PAYMENT_CONFIRMATION
 
     def test_payment_confirmation(self):
         """Test payment confirmation step"""
         # Set up previous step data
-        self.onboarding_service._set_onboarding_step(self.test_phone, OnboardingStep.PAYMENT_CONFIRMATION)
-        self.onboarding_service._user_data = {self.test_phone: {"name": "Shiwani"}}
+        self.onboarding_service.generic_onboarding._set_onboarding_step(self.test_phone, OnboardingStep.PAYMENT_CONFIRMATION)
+        self.onboarding_service.generic_onboarding._set_user_data(self.test_phone, {"name": "Shiwani"})
         
         payload = {
             "phone_number": self.test_phone,
@@ -196,14 +196,14 @@ class TestOnboardingFlow:
         assert "9639293454@ybl" in response["reply"]
         
         # Check that step was updated
-        current_step = self.onboarding_service._get_current_onboarding_step(self.test_phone)
+        current_step = self.onboarding_service.generic_onboarding._get_current_onboarding_step(self.test_phone)
         assert current_step == OnboardingStep.GROUP_INVITATION
 
     def test_group_invitation_after_payment(self):
         """Test group invitation after payment confirmation"""
         # Set up previous step data
-        self.onboarding_service._set_onboarding_step(self.test_phone, OnboardingStep.GROUP_INVITATION)
-        self.onboarding_service._user_data = {self.test_phone: {"name": "Shiwani"}}
+        self.onboarding_service.generic_onboarding._set_onboarding_step(self.test_phone, OnboardingStep.GROUP_INVITATION)
+        self.onboarding_service.generic_onboarding._set_user_data(self.test_phone, {"name": "Shiwani"})
         
         payload = {
             "phone_number": self.test_phone,
@@ -217,13 +217,13 @@ class TestOnboardingFlow:
         assert "join the group" in response["reply"]
         
         # Check that step was updated to completed
-        current_step = self.onboarding_service._get_current_onboarding_step(self.test_phone)
+        current_step = self.onboarding_service.generic_onboarding._get_current_onboarding_step(self.test_phone)
         assert current_step == OnboardingStep.COMPLETED
 
     def test_empty_name_handling(self):
         """Test handling of empty name input"""
         # Set up previous step data
-        self.onboarding_service._set_onboarding_step(self.test_phone, OnboardingStep.NAME_COLLECTION)
+        self.onboarding_service.generic_onboarding._set_onboarding_step(self.test_phone, OnboardingStep.NAME_COLLECTION)
         
         payload = {
             "phone_number": self.test_phone,
@@ -236,14 +236,14 @@ class TestOnboardingFlow:
         assert "Please tell me your name" in response["reply"]
         
         # Check that step was not updated
-        current_step = self.onboarding_service._get_current_onboarding_step(self.test_phone)
+        current_step = self.onboarding_service.generic_onboarding._get_current_onboarding_step(self.test_phone)
         assert current_step == OnboardingStep.NAME_COLLECTION
 
     def test_trial_offer_rejection(self):
         """Test trial offer rejection"""
         # Set up previous step data
-        self.onboarding_service._set_onboarding_step(self.test_phone, OnboardingStep.TRIAL_OFFER)
-        self.onboarding_service._user_data = {self.test_phone: {"name": "Shiwani"}}
+        self.onboarding_service.generic_onboarding._set_onboarding_step(self.test_phone, OnboardingStep.TRIAL_OFFER)
+        self.onboarding_service.generic_onboarding._set_user_data(self.test_phone, {"name": "Shiwani"})
         
         payload = {
             "phone_number": self.test_phone,
@@ -257,10 +257,10 @@ class TestOnboardingFlow:
         assert "Take your time" in response["reply"]
         
         # Check that step was not updated
-        current_step = self.onboarding_service._get_current_onboarding_step(self.test_phone)
+        current_step = self.onboarding_service.generic_onboarding._get_current_onboarding_step(self.test_phone)
         assert current_step == OnboardingStep.TRIAL_OFFER
 
-    @patch('src.bettermeals.graph.onboarding.get_db')
+    @patch('src.bettermeals.graph.onboarding.service.get_db')
     def test_check_if_onboarded_existing_user(self, mock_get_db):
         """Test checking onboarding status for existing user"""
         # Mock database response
@@ -281,7 +281,7 @@ class TestOnboardingFlow:
         mock_db.find_user_by_phone.assert_called_once_with(self.test_phone)
         mock_db.get_household_data.assert_called_once_with("household123")
 
-    @patch('src.bettermeals.graph.onboarding.get_db')
+    @patch('src.bettermeals.graph.onboarding.service.get_db')
     def test_check_if_onboarded_new_user(self, mock_get_db):
         """Test checking onboarding status for new user"""
         # Mock database response - no user found
