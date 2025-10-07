@@ -18,9 +18,10 @@ class ReferralUserOnboarding(BaseOnboarding):
             OnboardingStep.GREETING: self._handle_greeting,
             OnboardingStep.NAME_COLLECTION: self._handle_name_collection,
             OnboardingStep.NEEDS_ASSESSMENT: self._handle_treatment_plan,
+            OnboardingStep.FORM_COMPLETION: self._handle_form_completion,
             OnboardingStep.TRIAL_OFFER: self._handle_trial_offer,
             OnboardingStep.PAYMENT_CONFIRMATION: self._handle_payment_confirmation,
-            OnboardingStep.GROUP_INVITATION: self._handle_group_invitation,
+            # OnboardingStep.GROUP_INVITATION: self._handle_group_invitation,
         }
     
     def _handle_greeting(self, text: str, phone_number: str) -> Dict[str, Any]:
@@ -44,7 +45,7 @@ class ReferralUserOnboarding(BaseOnboarding):
         
         self._set_onboarding_step(phone_number, OnboardingStep.NEEDS_ASSESSMENT)
         return {
-            "reply": f"Nice to meet you, {name}! Since you were referred by Super Health hospital, you get a special discount! Which treatment plan are you looking for?\n\n1. Diabetes Management\n2. Heart Health\n3. Weight Management\n4. General Wellness\n5. Post-Surgery Recovery\n6. Other specific condition"
+            "reply": f"Nice to meet you, {name}! Which treatment plan are you looking for?\n\n1. Diabetes Management\n2. Heart Health\n3. Weight Management\n4. General Wellness\n5. Post-Surgery Recovery\n6. Other specific condition"
         }
     
     def _handle_treatment_plan(self, text: str, phone_number: str) -> Dict[str, Any]:
@@ -55,12 +56,27 @@ class ReferralUserOnboarding(BaseOnboarding):
         user_data["referral_source"] = "Super Health Hospital"
         self._set_user_data(phone_number, user_data)
         
-        self._set_onboarding_step(phone_number, OnboardingStep.TRIAL_OFFER)
-        user_name = user_data.get("name", "there")
+        self._set_onboarding_step(phone_number, OnboardingStep.FORM_COMPLETION)
         
         return {
-            "reply": f"Perfect! BetterMeals will create personalized meal plans for your {text.lower()} needs. Since you were referred by Super Health hospital, you get the first month for just ₹299 instead of ₹499!"
+            "reply": f"Perfect! Please complete this quick onboarding form to get started: https://bettermeals.in/onboarding \n\n Let me know once you've completed the form!"
         }
+
+    def _handle_form_completion(self, text: str, phone_number: str) -> Dict[str, Any]:
+        """Handle form completion step."""
+        if "done" in text.lower() or "completed" in text.lower() or "finished" in text.lower() or "✅" in text:
+            self._set_onboarding_step(phone_number, OnboardingStep.TRIAL_OFFER)
+            user_data = self._get_user_data(phone_number)
+            user_name = user_data.get("name", "there")
+            treatment_plan = user_data.get("treatment_plan", "illness")
+            
+            return {
+                "reply": f"Perfect, {user_name}! Thanks for completing the form. BetterMeals will help you recover from {treatment_plan.lower()}. Since you were referred by Super Health hospital, you get the first month for just ₹299 instead of ₹499!"
+            }
+        else:
+            return {
+                "reply": "Please complete the onboarding form first: https://bettermeals.in/onboarding \n\nLet me know once you're done!"
+            }
     
     
     
@@ -90,7 +106,7 @@ class ReferralUserOnboarding(BaseOnboarding):
                 "reply": "Please confirm your name so I send you the payment details"
             }
         
-        self._set_onboarding_step(phone_number, OnboardingStep.GROUP_INVITATION)
+        self._set_onboarding_step(phone_number, OnboardingStep.COMPLETED)
         user_data = self._get_user_data(phone_number)
         user_name = user_data.get("name", "there")
         

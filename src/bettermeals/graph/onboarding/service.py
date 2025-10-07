@@ -1,7 +1,7 @@
 from typing import Dict, Any, Optional, Tuple
 import logging
 
-from .generic import GenericUserOnboarding
+from .generic_v2 import GenericUserOnboardingV2
 from .referral import ReferralUserOnboarding
 from ...database.database import get_db
 
@@ -13,7 +13,7 @@ class OnboardingService:
     """Service to manage different onboarding flows (generic, referral, etc.)"""
 
     def __init__(self):
-        self.generic_onboarding = GenericUserOnboarding()
+        self.generic_onboarding = GenericUserOnboardingV2()
         self.referral_onboarding = ReferralUserOnboarding()
         # In production, you might load these dynamically or from a config
 

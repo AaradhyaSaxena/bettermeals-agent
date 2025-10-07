@@ -11,6 +11,7 @@ class OnboardingStep(Enum):
     """Enumeration of onboarding steps"""
     GREETING = "greeting"
     NAME_COLLECTION = "name_collection"
+    FORM_COMPLETION = "form_completion"
     NEEDS_ASSESSMENT = "needs_assessment"
     STRESS_POINTS = "stress_points"
     COOK_COORDINATION_DETAILS = "cook_coordination_details"

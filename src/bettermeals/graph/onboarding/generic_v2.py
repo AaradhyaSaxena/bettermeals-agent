@@ -7,7 +7,7 @@ from .base import BaseOnboarding, OnboardingStep
 logger = logging.getLogger(__name__)
 
 
-class GenericUserOnboarding(BaseOnboarding):
+class GenericUserOnboardingV2(BaseOnboarding):
     """Onboarding flow for generic users"""
     
     def get_onboarding_type(self) -> str:
@@ -17,13 +17,10 @@ class GenericUserOnboarding(BaseOnboarding):
         return {
             OnboardingStep.GREETING: self._handle_greeting,
             OnboardingStep.NAME_COLLECTION: self._handle_name_collection,
-            OnboardingStep.NEEDS_ASSESSMENT: self._handle_needs_assessment,
-            OnboardingStep.STRESS_POINTS: self._handle_stress_points,
-            OnboardingStep.COOK_COORDINATION_DETAILS: self._handle_cook_coordination_details,
-            OnboardingStep.COOK_STATUS: self._handle_cook_status,
+            OnboardingStep.FORM_COMPLETION: self._handle_form_completion,
             OnboardingStep.TRIAL_OFFER: self._handle_trial_offer,
             OnboardingStep.PAYMENT_CONFIRMATION: self._handle_payment_confirmation,
-            OnboardingStep.GROUP_INVITATION: self._handle_group_invitation,
+            # OnboardingStep.GROUP_INVITATION: self._handle_group_invitation,
         }
     
     def _handle_greeting(self, text: str, phone_number: str) -> Dict[str, Any]:
@@ -44,67 +41,24 @@ class GenericUserOnboarding(BaseOnboarding):
         user_data["name"] = name
         self._set_user_data(phone_number, user_data)
         
-        self._set_onboarding_step(phone_number, OnboardingStep.NEEDS_ASSESSMENT)
+        self._set_onboarding_step(phone_number, OnboardingStep.FORM_COMPLETION)
         return {
-            "reply": f"Nice to meet you, {name}! What are you looking for from BetterMeals?\n\n1. Convenience (menu planning, cook coordination, grocery ordering)\n2. Healthier meals\n3. Savings on groceries\n4. Save time\n5. Anything else?"
+            "reply": f"Nice to meet you, {name}! Please complete this quick onboarding form to get started: https://bettermeals.in/onboarding \n\n Let me know once you've completed the form!"
         }
     
-    def _handle_needs_assessment(self, text: str, phone_number: str) -> Dict[str, Any]:
-        """Handle needs assessment step."""
-        # Store the user's needs
-        user_data = self._get_user_data(phone_number)
-        user_data["needs"] = text
-        self._set_user_data(phone_number, user_data)
-        
-        self._set_onboarding_step(phone_number, OnboardingStep.STRESS_POINTS)
-        return {
-            "reply": "Got it! Can you share what's most stressful for you—menu planning, cook coordination, or grocery shopping?"
-        }
-    
-    def _handle_stress_points(self, text: str, phone_number: str) -> Dict[str, Any]:
-        """Handle stress points assessment."""
-        # Store stress points
-        user_data = self._get_user_data(phone_number)
-        user_data["stress_points"] = text
-        self._set_user_data(phone_number, user_data)
-        
-        self._set_onboarding_step(phone_number, OnboardingStep.COOK_COORDINATION_DETAILS)
-        return {
-            "reply": "Totally get you! What's tricky about coordinating with your cook? Timing, menu confusion, or something else?"
-        }
-    
-    def _handle_cook_coordination_details(self, text: str, phone_number: str) -> Dict[str, Any]:
-        """Handle cook coordination details."""
-        # Store cook coordination details
-        user_data = self._get_user_data(phone_number)
-        user_data["cook_coordination_details"] = text
-        self._set_user_data(phone_number, user_data)
-        
-        self._set_onboarding_step(phone_number, OnboardingStep.COOK_STATUS)
-        return {
-            "reply": "You're not alone, yaar! BetterMeals sends your cook clear voice notes and step-by-step instructions on WhatsApp, so no more repeating yourself or recipe confusion. 😊\n\nDo you have a cook at home right now?"
-        }
-    
-    def _handle_cook_status(self, text: str, phone_number: str) -> Dict[str, Any]:
-        """Handle cook status question."""
-        has_cook = text.lower().strip() in ["yes", "y", "yeah", "yep"]
-        
-        # Store cook status
-        user_data = self._get_user_data(phone_number)
-        user_data["has_cook"] = has_cook
-        self._set_user_data(phone_number, user_data)
-        
-        self._set_onboarding_step(phone_number, OnboardingStep.TRIAL_OFFER)
-        
-        user_name = user_data.get("name", "there")
-        
-        if has_cook:
+    def _handle_form_completion(self, text: str, phone_number: str) -> Dict[str, Any]:
+        """Handle form completion step."""
+        if "done" in text.lower() or "completed" in text.lower() or "finished" in text.lower() or "✅" in text:
+            self._set_onboarding_step(phone_number, OnboardingStep.TRIAL_OFFER)
+            user_data = self._get_user_data(phone_number)
+            user_name = user_data.get("name", "there")
+            
             return {
-                "reply": f"Perfect! BetterMeals will help coordinate with your cook seamlessly. Want to try it for a month at just ₹49?"
+                "reply": f"Perfect, {user_name}! Thanks for completing the form. Want to try BetterMeals for a month at just ₹49?"
             }
         else:
             return {
-                "reply": f"Thanks for sharing, {user_name}! Even without a cook, BetterMeals can plan your meals, suggest groceries, and save you time. Want to try it for a month at just ₹49?"
+                "reply": "Please complete the onboarding form first: https://bettermeals.in/onboarding \n\nLet me know once you're done!"
             }
     
     def _handle_trial_offer(self, text: str, phone_number: str) -> Dict[str, Any]:
@@ -133,7 +87,7 @@ class GenericUserOnboarding(BaseOnboarding):
                 "reply": "Please confirm your name once, before the payment process starts"
             }
         
-        self._set_onboarding_step(phone_number, OnboardingStep.GROUP_INVITATION)
+        self._set_onboarding_step(phone_number, OnboardingStep.COMPLETED)
         user_data = self._get_user_data(phone_number)
         user_name = user_data.get("name", "there")
         
@@ -141,7 +95,7 @@ class GenericUserOnboarding(BaseOnboarding):
         upi_id = "9639293454@ybl"  # Mock id
         
         return {
-            "reply": f"You can pay for the ₹49 trial at this UPI ID: {upi_id}\n\nLet me know once you've paid, {user_name}! 😊"
+            "reply": f"You can pay for the ₹149 trial at this UPI ID: {upi_id}\n\nLet me know once you've paid, {user_name}! 😊"
         }
     
     def _handle_group_invitation(self, text: str, phone_number: str) -> Dict[str, Any]:
