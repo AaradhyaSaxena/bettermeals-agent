@@ -299,5 +299,428 @@ class TestGenericOnboardingFlow:
         mock_db.get_household_data.assert_not_called()
 
 
+class TestReferralOnboardingFlow:
+    """Test the structured onboarding flow for hospital referral users"""
+
+    def setup_method(self):
+        """Set up test fixtures"""
+        self.onboarding_service = OnboardingService()
+        self.test_phone = "+9876543210"
+
+    def test_referral_greeting_step(self):
+        """Test the initial greeting step for hospital referrals"""
+        payload = {
+            "phone_number": self.test_phone,
+            "text": "Hi",
+            "referral_code": "super_health_123"  # This triggers referral flow
+        }
+        
+        response = self.onboarding_service.process_onboarding_message(payload)
+        
+        assert "reply" in response
+        assert "Zuko from Bettermeals" in response["reply"]
+        assert "Super Health hospital" in response["reply"]
+        assert "May I know your name" in response["reply"]
+        
+        # Check that step was updated
+        current_step = self.onboarding_service.referral_onboarding._get_current_onboarding_step(self.test_phone)
+        assert current_step == OnboardingStep.NAME_COLLECTION
+
+    def test_referral_name_collection_step(self):
+        """Test name collection step for hospital referrals"""
+        # First set the step to name collection
+        self.onboarding_service.referral_onboarding._set_onboarding_step(self.test_phone, OnboardingStep.NAME_COLLECTION)
+        
+        payload = {
+            "phone_number": self.test_phone,
+            "text": "Dr. Mira",
+            "referral_code": "super_health_123"
+        }
+        
+        response = self.onboarding_service.process_onboarding_message(payload)
+        
+        assert "reply" in response
+        assert "Nice to meet you, Dr. Mira!" in response["reply"]
+        assert "Super Health hospital" in response["reply"]
+        assert "special discount" in response["reply"]
+        assert "treatment plan" in response["reply"]
+        assert "Diabetes Management" in response["reply"]
+        assert "Heart Health" in response["reply"]
+        assert "Weight Management" in response["reply"]
+        
+        # Check that step was updated
+        current_step = self.onboarding_service.referral_onboarding._get_current_onboarding_step(self.test_phone)
+        assert current_step == OnboardingStep.NEEDS_ASSESSMENT
+        
+        # Check that name and referral status were stored
+        user_data = self.onboarding_service.referral_onboarding._get_user_data(self.test_phone)
+        assert user_data["name"] == "Dr. Mira"
+        assert user_data["is_referral"] is True
+
+    def test_treatment_plan_selection_diabetes(self):
+        """Test treatment plan selection for diabetes management"""
+        # Set up previous step data
+        self.onboarding_service.referral_onboarding._set_onboarding_step(self.test_phone, OnboardingStep.NEEDS_ASSESSMENT)
+        self.onboarding_service.referral_onboarding._set_user_data(self.test_phone, {
+            "name": "Dr. Mira",
+            "is_referral": True
+        })
+        
+        payload = {
+            "phone_number": self.test_phone,
+            "text": "Diabetes Management",
+            "referral_code": "super_health_123"
+        }
+        
+        response = self.onboarding_service.process_onboarding_message(payload)
+        
+        assert "reply" in response
+        assert "Perfect!" in response["reply"]
+        assert "diabetes management needs" in response["reply"]
+        assert "Super Health hospital" in response["reply"]
+        assert "₹299 instead of ₹499" in response["reply"]
+        
+        # Check that step was updated
+        current_step = self.onboarding_service.referral_onboarding._get_current_onboarding_step(self.test_phone)
+        assert current_step == OnboardingStep.TRIAL_OFFER
+        
+        # Check that treatment plan was stored
+        user_data = self.onboarding_service.referral_onboarding._get_user_data(self.test_phone)
+        assert user_data["treatment_plan"] == "Diabetes Management"
+        assert user_data["referral_source"] == "Super Health Hospital"
+
+    def test_treatment_plan_selection_heart_health(self):
+        """Test treatment plan selection for heart health"""
+        # Set up previous step data
+        self.onboarding_service.referral_onboarding._set_onboarding_step(self.test_phone, OnboardingStep.NEEDS_ASSESSMENT)
+        self.onboarding_service.referral_onboarding._set_user_data(self.test_phone, {
+            "name": "Dr. Mira",
+            "is_referral": True
+        })
+        
+        payload = {
+            "phone_number": self.test_phone,
+            "text": "Heart Health",
+            "referral_code": "super_health_123"
+        }
+        
+        response = self.onboarding_service.process_onboarding_message(payload)
+        
+        assert "reply" in response
+        assert "heart health needs" in response["reply"]
+        assert "₹299 instead of ₹499" in response["reply"]
+        
+        # Check that treatment plan was stored
+        user_data = self.onboarding_service.referral_onboarding._get_user_data(self.test_phone)
+        assert user_data["treatment_plan"] == "Heart Health"
+
+    def test_treatment_plan_selection_weight_management(self):
+        """Test treatment plan selection for weight management"""
+        # Set up previous step data
+        self.onboarding_service.referral_onboarding._set_onboarding_step(self.test_phone, OnboardingStep.NEEDS_ASSESSMENT)
+        self.onboarding_service.referral_onboarding._set_user_data(self.test_phone, {
+            "name": "Dr. Mira",
+            "is_referral": True
+        })
+        
+        payload = {
+            "phone_number": self.test_phone,
+            "text": "Weight Management",
+            "referral_code": "super_health_123"
+        }
+        
+        response = self.onboarding_service.process_onboarding_message(payload)
+        
+        assert "reply" in response
+        assert "weight management needs" in response["reply"]
+        assert "₹299 instead of ₹499" in response["reply"]
+
+    def test_treatment_plan_selection_post_surgery(self):
+        """Test treatment plan selection for post-surgery recovery"""
+        # Set up previous step data
+        self.onboarding_service.referral_onboarding._set_onboarding_step(self.test_phone, OnboardingStep.NEEDS_ASSESSMENT)
+        self.onboarding_service.referral_onboarding._set_user_data(self.test_phone, {
+            "name": "Dr. Mira",
+            "is_referral": True
+        })
+        
+        payload = {
+            "phone_number": self.test_phone,
+            "text": "Post-Surgery Recovery",
+            "referral_code": "super_health_123"
+        }
+        
+        response = self.onboarding_service.process_onboarding_message(payload)
+        
+        assert "reply" in response
+        assert "post-surgery recovery needs" in response["reply"]
+        assert "₹299 instead of ₹499" in response["reply"]
+
+    def test_referral_trial_offer_acceptance(self):
+        """Test trial offer acceptance for hospital referrals"""
+        # Set up previous step data
+        self.onboarding_service.referral_onboarding._set_onboarding_step(self.test_phone, OnboardingStep.TRIAL_OFFER)
+        self.onboarding_service.referral_onboarding._set_user_data(self.test_phone, {
+            "name": "Dr. Mira",
+            "is_referral": True,
+            "treatment_plan": "Diabetes Management",
+            "referral_source": "Super Health Hospital"
+        })
+        
+        payload = {
+            "phone_number": self.test_phone,
+            "text": "Yes",
+            "referral_code": "super_health_123"
+        }
+        
+        response = self.onboarding_service.process_onboarding_message(payload)
+        
+        assert "reply" in response
+        assert "Awesome!" in response["reply"]
+        assert "confirm your name" in response["reply"]
+        assert "Dr. Mira" in response["reply"]
+        
+        # Check that step was updated
+        current_step = self.onboarding_service.referral_onboarding._get_current_onboarding_step(self.test_phone)
+        assert current_step == OnboardingStep.PAYMENT_CONFIRMATION
+
+    def test_referral_trial_offer_rejection(self):
+        """Test trial offer rejection for hospital referrals"""
+        # Set up previous step data
+        self.onboarding_service.referral_onboarding._set_onboarding_step(self.test_phone, OnboardingStep.TRIAL_OFFER)
+        self.onboarding_service.referral_onboarding._set_user_data(self.test_phone, {
+            "name": "Dr. Mira",
+            "is_referral": True,
+            "treatment_plan": "Diabetes Management"
+        })
+        
+        payload = {
+            "phone_number": self.test_phone,
+            "text": "Not right now",
+            "referral_code": "super_health_123"
+        }
+        
+        response = self.onboarding_service.process_onboarding_message(payload)
+        
+        assert "reply" in response
+        assert "No worries!" in response["reply"]
+        assert "Super Health hospital's special pricing" in response["reply"]
+        
+        # Check that step was not updated
+        current_step = self.onboarding_service.referral_onboarding._get_current_onboarding_step(self.test_phone)
+        assert current_step == OnboardingStep.TRIAL_OFFER
+
+    def test_referral_payment_confirmation(self):
+        """Test payment confirmation for hospital referrals"""
+        # Set up previous step data
+        self.onboarding_service.referral_onboarding._set_onboarding_step(self.test_phone, OnboardingStep.PAYMENT_CONFIRMATION)
+        self.onboarding_service.referral_onboarding._set_user_data(self.test_phone, {
+            "name": "Dr. Mira",
+            "is_referral": True,
+            "treatment_plan": "Diabetes Management",
+            "referral_source": "Super Health Hospital"
+        })
+        
+        payload = {
+            "phone_number": self.test_phone,
+            "text": "Yes",
+            "referral_code": "super_health_123"
+        }
+        
+        response = self.onboarding_service.process_onboarding_message(payload)
+        
+        assert "reply" in response
+        assert "UPI ID" in response["reply"]
+        assert "9639293454@ybl" in response["reply"]
+        assert "₹299 trial (referral discount)" in response["reply"]
+        assert "Dr. Mira" in response["reply"]
+        
+        # Check that step was updated
+        current_step = self.onboarding_service.referral_onboarding._get_current_onboarding_step(self.test_phone)
+        assert current_step == OnboardingStep.GROUP_INVITATION
+
+    def test_referral_payment_confirmation_rejection(self):
+        """Test payment confirmation rejection for hospital referrals"""
+        # Set up previous step data
+        self.onboarding_service.referral_onboarding._set_onboarding_step(self.test_phone, OnboardingStep.PAYMENT_CONFIRMATION)
+        self.onboarding_service.referral_onboarding._set_user_data(self.test_phone, {
+            "name": "Dr. Mira",
+            "is_referral": True
+        })
+        
+        payload = {
+            "phone_number": self.test_phone,
+            "text": "No, that's not right",
+            "referral_code": "super_health_123"
+        }
+        
+        response = self.onboarding_service.process_onboarding_message(payload)
+        
+        assert "reply" in response
+        assert "Please confirm your name" in response["reply"]
+        assert "payment details" in response["reply"]
+        
+        # Check that step was not updated
+        current_step = self.onboarding_service.referral_onboarding._get_current_onboarding_step(self.test_phone)
+        assert current_step == OnboardingStep.PAYMENT_CONFIRMATION
+
+    def test_referral_group_invitation_after_payment(self):
+        """Test group invitation after payment for hospital referrals"""
+        # Set up previous step data
+        self.onboarding_service.referral_onboarding._set_onboarding_step(self.test_phone, OnboardingStep.GROUP_INVITATION)
+        self.onboarding_service.referral_onboarding._set_user_data(self.test_phone, {
+            "name": "Dr. Mira",
+            "is_referral": True,
+            "treatment_plan": "Diabetes Management",
+            "referral_source": "Super Health Hospital"
+        })
+        
+        payload = {
+            "phone_number": self.test_phone,
+            "text": "Done ✅",
+            "referral_code": "super_health_123"
+        }
+        
+        response = self.onboarding_service.process_onboarding_message(payload)
+        
+        assert "reply" in response
+        assert "WhatsApp group" in response["reply"]
+        assert "join the group" in response["reply"]
+        assert "Super Health hospital referral" in response["reply"]
+        
+        # Check that step was updated to completed
+        current_step = self.onboarding_service.referral_onboarding._get_current_onboarding_step(self.test_phone)
+        assert current_step == OnboardingStep.COMPLETED
+
+    def test_referral_group_invitation_pending_payment(self):
+        """Test group invitation when payment is still pending for hospital referrals"""
+        # Set up previous step data
+        self.onboarding_service.referral_onboarding._set_onboarding_step(self.test_phone, OnboardingStep.GROUP_INVITATION)
+        self.onboarding_service.referral_onboarding._set_user_data(self.test_phone, {
+            "name": "Dr. Mira",
+            "is_referral": True
+        })
+        
+        payload = {
+            "phone_number": self.test_phone,
+            "text": "I'm still working on it",
+            "referral_code": "super_health_123"
+        }
+        
+        response = self.onboarding_service.process_onboarding_message(payload)
+        
+        assert "reply" in response
+        assert "completed the payment" in response["reply"]
+        assert "group invitation" in response["reply"]
+        
+        # Check that step was not updated
+        current_step = self.onboarding_service.referral_onboarding._get_current_onboarding_step(self.test_phone)
+        assert current_step == OnboardingStep.GROUP_INVITATION
+
+    def test_referral_empty_name_handling(self):
+        """Test handling of empty name input for hospital referrals"""
+        # Set up previous step data
+        self.onboarding_service.referral_onboarding._set_onboarding_step(self.test_phone, OnboardingStep.NAME_COLLECTION)
+        
+        payload = {
+            "phone_number": self.test_phone,
+            "text": "",
+            "referral_code": "super_health_123"
+        }
+        
+        response = self.onboarding_service.process_onboarding_message(payload)
+        
+        assert "reply" in response
+        assert "Please tell me your name" in response["reply"]
+        
+        # Check that step was not updated
+        current_step = self.onboarding_service.referral_onboarding._get_current_onboarding_step(self.test_phone)
+        assert current_step == OnboardingStep.NAME_COLLECTION
+
+    def test_referral_onboarding_type_detection(self):
+        """Test that referral onboarding type is correctly detected"""
+        assert self.onboarding_service.referral_onboarding.get_onboarding_type() == "referral"
+
+    def test_referral_vs_generic_routing(self):
+        """Test that referral code triggers referral flow vs generic flow"""
+        # Test with referral code - should use referral onboarding
+        payload_with_referral = {
+            "phone_number": self.test_phone,
+            "text": "Hi",
+            "referral_code": "super_health_123"
+        }
+        
+        response_referral = self.onboarding_service.process_onboarding_message(payload_with_referral)
+        assert "Super Health hospital" in response_referral["reply"]
+        
+        # Test without referral code - should use generic onboarding
+        payload_without_referral = {
+            "phone_number": "+1111111111",  # Different phone to avoid state conflicts
+            "text": "Hi"
+        }
+        
+        response_generic = self.onboarding_service.process_onboarding_message(payload_without_referral)
+        assert "Super Health hospital" not in response_generic["reply"]
+        assert "May I know your name" in response_generic["reply"]
+
+    def test_referral_complete_flow_integration(self):
+        """Test complete referral onboarding flow from start to finish"""
+        phone = "+5555555555"
+        
+        # Step 1: Greeting
+        response1 = self.onboarding_service.process_onboarding_message({
+            "phone_number": phone,
+            "text": "Hello",
+            "referral_code": "super_health_123"
+        })
+        assert "Super Health hospital" in response1["reply"]
+        
+        # Step 2: Name collection
+        response2 = self.onboarding_service.process_onboarding_message({
+            "phone_number": phone,
+            "text": "Dr. Michael Chen",
+            "referral_code": "super_health_123"
+        })
+        assert "Dr. Michael Chen" in response2["reply"]
+        assert "treatment plan" in response2["reply"]
+        
+        # Step 3: Treatment plan
+        response3 = self.onboarding_service.process_onboarding_message({
+            "phone_number": phone,
+            "text": "Heart Health",
+            "referral_code": "super_health_123"
+        })
+        assert "heart health needs" in response3["reply"]
+        assert "₹299 instead of ₹499" in response3["reply"]
+        
+        # Step 4: Trial offer acceptance
+        response4 = self.onboarding_service.process_onboarding_message({
+            "phone_number": phone,
+            "text": "Yes",
+            "referral_code": "super_health_123"
+        })
+        assert "confirm your name" in response4["reply"]
+        
+        # Step 5: Payment confirmation
+        response5 = self.onboarding_service.process_onboarding_message({
+            "phone_number": phone,
+            "text": "Yes",
+            "referral_code": "super_health_123"
+        })
+        assert "₹299 trial (referral discount)" in response5["reply"]
+        
+        # Step 6: Payment completion
+        response6 = self.onboarding_service.process_onboarding_message({
+            "phone_number": phone,
+            "text": "Paid ✅",
+            "referral_code": "super_health_123"
+        })
+        assert "Super Health hospital referral" in response6["reply"]
+        
+        # Verify final state
+        final_step = self.onboarding_service.referral_onboarding._get_current_onboarding_step(phone)
+        assert final_step == OnboardingStep.COMPLETED
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
