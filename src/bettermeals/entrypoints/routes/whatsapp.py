@@ -16,8 +16,8 @@ async def whatsapp_webhook(req: dict, graph=Depends(get_graph)):
     """Handle incoming WhatsApp webhook requests."""
     is_onboarded, hld_data = onboarding_service.check_if_onboarded(req)
     if not is_onboarded:
-        ## trigger onboarding flow
-        return {"reply": "You are not onboarded yet. Please onboard first."}
+        # Trigger onboarding flow
+        return onboarding_service.process_onboarding_message(req)
     else:
         text, household_id, sender_role = WebhookProcessor.extract_payload_data(req)
         state_in, config = WebhookProcessor.build_graph_input(text, household_id, sender_role)
