@@ -285,7 +285,7 @@ sequenceDiagram
 
 ---
 
-## 17. Multi-Modal Capabilities
+## 18. Multi-Modal Capabilities
 
 | Modality          | Role                             |
 | ----------------- | -------------------------------- |
@@ -297,7 +297,7 @@ Allows quick onboarding, natural conversation, and optional voice.
 
 ---
 
-## 18. Responsible AI
+## 19. Responsible AI
 
 * Human approvals at key boundaries
 * No hallucinations — APIs own the truth
@@ -306,7 +306,7 @@ Allows quick onboarding, natural conversation, and optional voice.
 
 ---
 
-## 19. Live Demo Guide
+## 20. Live Demo Guide
 
 1. **Run Orchestrator**
 
@@ -327,7 +327,7 @@ Allows quick onboarding, natural conversation, and optional voice.
 
 ---
 
-## 20. Implementation Status
+## 21. Implementation Status
 
 | Area                 | Status         | Notes                    |
 | -------------------- | -------------- | ------------------------ |
@@ -341,7 +341,7 @@ Allows quick onboarding, natural conversation, and optional voice.
 
 ---
 
-## 21. Extensibility
+## 22. Extensibility
 
 * **New behaviors → new agents/tools** (no prompt bloat)
 * **Channel expansion** (e.g., Teams, Slack) via integration layer
@@ -349,7 +349,7 @@ Allows quick onboarding, natural conversation, and optional voice.
 
 ---
 
-## 22. Key Takeaways
+## 23. Key Takeaways
 
 * **Fast, stateful, real-time** orchestration
 * **Durable & auditable** execution model
