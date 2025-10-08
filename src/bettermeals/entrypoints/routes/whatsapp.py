@@ -14,19 +14,23 @@ def get_graph():
 @router.post("/whatsapp")
 async def whatsapp_webhook(req: dict, graph=Depends(get_graph)):
     """Handle incoming WhatsApp webhook requests."""
-    is_onboarded, hld_data = onboarding_service.check_if_onboarded(req)
+    phone_number = req.get("phone_number")
+    is_onboarded, hld_data = onboarding_service.check_if_onboarded(phone_number)
     if not is_onboarded:
         # Trigger onboarding flow
         return onboarding_service.process_onboarding_message(req)
     else:
-        text, household_id, sender_role = WebhookProcessor.extract_payload_data(req)
-        state_in, config = WebhookProcessor.build_graph_input(text, household_id, sender_role)
-        final = await graph.ainvoke(state_in, config)
-        
-        messages = final.get("messages", [])
-        WebhookProcessor.debug_print_messages(messages)
-        last_message = WebhookProcessor.extract_last_ai_message(messages)
-        
-        response = WebhookProcessor.build_response(last_message, final)
-        print(f"Response: {response}")
-        return response
+        return {
+            "reply": "You are now onboarded on bettermeals. Please start with your weekly planning tasks."
+        }
+    # text, household_id, sender_role = WebhookProcessor.extract_payload_data(req)
+    # state_in, config = WebhookProcessor.build_graph_input(text, household_id, sender_role)
+    # final = await graph.ainvoke(state_in, config)
+    
+    # messages = final.get("messages", [])
+    # WebhookProcessor.debug_print_messages(messages)
+    # last_message = WebhookProcessor.extract_last_ai_message(messages)
+    
+    # response = WebhookProcessor.build_response(last_message, final)
+    # print(f"Response: {response}")
+    # return response
