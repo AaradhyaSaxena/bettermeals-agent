@@ -24,6 +24,12 @@ tenacity>=8.3
 python-dotenv>=1.0
 pyyaml>=6.0
 
+# Database
+firebase-admin>=6.0.0
+google-cloud-firestore>=2.13.0
+google-cloud-storage>=2.10.0
+google-auth>=2.23.0
+
 # HTTP and networking
 aiohttp>=3.12
 requests>=2.32

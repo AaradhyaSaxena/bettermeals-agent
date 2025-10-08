@@ -3,6 +3,7 @@ groq_env/
 data/
 .ipynb_checkpoints/
 *.pyc
+*key.json
 # Elastic Beanstalk Files
 .elasticbeanstalk/*
 !.elasticbeanstalk/*.cfg.yml
