@@ -1,5 +1,6 @@
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
+from src.bettermeals.config.secrets_manager import secrets_manager
 
 def initialize_firebase():
     """
@@ -7,23 +8,29 @@ def initialize_firebase():
     This function is the single source of initialization for the app.
     It configures both Firestore and Storage.
     """
+    print("Starting Firebase initialization...")
+    
     if not firebase_admin._apps:
-        key_path = "src/bettermeals/database/config/bettermeals_firebase_key.json"
-
         try:
-            cred = credentials.Certificate(key_path)
-        except FileNotFoundError:
-            # Re-raise with a more helpful message
-            raise FileNotFoundError(
-                f"Firebase credentials not found at '{key_path}'. "
-                f"Ensure the file exists and the script is run from the project root."
-            )
-
-        firebase_admin.initialize_app(cred, {
-            'storageBucket': 'bettermeals-f47b8.firebasestorage.app'
-        })
-
-    return firestore.client()
+            firebase_credentials = secrets_manager.get_firebase_credentials()
+            cred = credentials.Certificate(firebase_credentials)
+            
+            # Get storage bucket from secrets manager with fallback
+            storage_bucket = secrets_manager.get_secret("FIREBASE_STORAGE_BUCKET", "bettermeals-f47b8.firebasestorage.app")
+            
+            firebase_admin.initialize_app(cred, {
+                'storageBucket': storage_bucket
+            })
+            print(f"Firebase initialized successfully with bucket: {storage_bucket}")
+            
+        except Exception as e:
+            print(f"Error initializing Firebase: {e}")
+            raise ValueError(f"Error initializing Firebase credentials: {e}")
+    else:
+        print("Firebase app already initialized, skipping...")
+    firestore_client = firestore.client()
+    print("Firestore client created successfully")
+    return firestore_client
 
 def get_storage_bucket():
     """

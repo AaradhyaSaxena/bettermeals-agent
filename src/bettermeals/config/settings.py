@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings
 from typing import Optional
 import os
 import logging
-from .secrets_manager import secrets_client
+from .secrets_manager import secrets_manager
 
 logger = logging.getLogger(__name__)
 
@@ -32,20 +32,20 @@ class Settings(BaseSettings):
             return
             
         logger.info(f"Loading secrets from AWS Secrets Manager: {self.secrets_manager_secret_name}")
-        secrets = secrets_client.get_secret(self.secrets_manager_secret_name)
         
-        if secrets:
+        try:
             # Override settings with values from Secrets Manager
-            self.groq_api_key = secrets.get('GROQ_API_KEY', self.groq_api_key)
-            self.claude_api_key = secrets.get('CLAUDE_API_KEY', self.claude_api_key)
-            self.tavily_api_key = secrets.get('TAVILY_API_KEY', self.tavily_api_key)
+            self.groq_api_key = secrets_manager.get_secret('GROQ_API_KEY', self.groq_api_key)
+            self.claude_api_key = secrets_manager.get_secret('CLAUDE_API_KEY', self.claude_api_key)
+            self.tavily_api_key = secrets_manager.get_secret('TAVILY_API_KEY', self.tavily_api_key)
             
             # Update BM_API_BASE if provided
-            if 'BM_API_BASE' in secrets:
-                self.bm_api_base = secrets['BM_API_BASE']
+            bm_api_base = secrets_manager.get_secret('BM_API_BASE')
+            if bm_api_base:
+                self.bm_api_base = bm_api_base
                 
             logger.info("Successfully loaded secrets from AWS Secrets Manager")
-        else:
-            logger.warning("Failed to load secrets from AWS Secrets Manager, falling back to environment variables")
+        except Exception as e:
+            logger.warning(f"Failed to load secrets from AWS Secrets Manager: {e}, falling back to environment variables")
 
 settings = Settings()
