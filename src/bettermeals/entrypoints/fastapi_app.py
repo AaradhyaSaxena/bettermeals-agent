@@ -16,6 +16,12 @@ graph_service.build_graph()
 logger.info("LangGraph workflow built successfully")
 
 app = FastAPI(title="BetterMeals Agents")
+
+@app.get("/")
+async def health_check():
+    """Health check endpoint for load balancer."""
+    return {"status": "healthy", "service": "BetterMeals Agents"}
+
 app.include_router(whatsapp_router, prefix="/webhooks")
 
 logger.info("FastAPI application initialised")
