@@ -137,22 +137,12 @@ class Database:
             # First find the user to get household_id
             user = self.find_user_by_phone(phone_number)
             if user is None:
-                logger.warning(f"No user found for phone: {phone_number}, creating new household")
-                # Create new household with onboarding data
-                household_ref = self.db.collection("household")
-                household_doc = {
-                    "onboarding": onboarding_data,
-                    "created_at": datetime.now(),
-                    "phone_number": phone_number
-                }
-                doc_ref = household_ref.add(household_doc)
-                household_id = doc_ref[1].id
-                logger.info(f"Created new household {household_id} with onboarding data")
-                return True
+                logger.warning(f"No user found for phone: {phone_number}, terminating onboarding.")
+                return False
                 
             household_id = user.get("householdId")
             if household_id is None:
-                logger.warning(f"No household_id found for user: {phone_number}")
+                logger.warning(f"No household_id found for user: {phone_number}, terminating onboarding.")
                 return False
             
             # Update household with final onboarding data
