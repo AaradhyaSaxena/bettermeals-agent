@@ -2,5 +2,8 @@ version: "3.9"
 services:
   app:
     build: .
-    env_file: .env
+    env_file: config.env
     ports: ["8000:8000"]
+    environment:
+      - AWS_REGION=ap-south-1
+      - SECRETS_MANAGER_SECRET_NAME=prod/bettermeals-backend/env

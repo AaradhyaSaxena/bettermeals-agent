@@ -1,0 +1,24 @@
+{
+  "AWSEBDockerrunVersion": "1",
+  "Image": {
+    "Name": "bettermeals-agents",
+    "Update": "true"
+  },
+  "Ports": [
+    {
+      "ContainerPort": "8000",
+      "HostPort": "80"
+    }
+  ],
+  "Environment": [
+    {
+      "Name": "AWS_REGION",
+      "Value": "ap-south-1"
+    },
+    {
+      "Name": "SECRETS_MANAGER_SECRET_NAME",
+      "Value": "prod/bettermeals-backend/env"
+    }
+  ],
+  "Logging": "/var/log/eb-docker/containers/eb-current-app"
+}
