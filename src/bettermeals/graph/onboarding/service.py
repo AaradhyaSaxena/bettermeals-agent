@@ -17,11 +17,10 @@ class OnboardingService:
         self.referral_onboarding = ReferralUserOnboarding()
         # In production, you might load these dynamically or from a config
 
-    def check_if_onboarded(self, payload: Dict[str, Any]) -> Tuple[bool, Optional[Dict[str, Any]]]:
+    def check_if_onboarded(self, phone_number: str) -> Tuple[bool, Optional[Dict[str, Any]]]:
         """Check if user is already onboarded based on webhook payload."""
         try:
-            phone_number = payload.get("phone_number")
-            if phone_number is None:
+            if phone_number is None or phone_number == "":
                 logger.info("No phone number found in payload")
                 return False, None
                 
