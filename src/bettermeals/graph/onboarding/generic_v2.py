@@ -54,7 +54,7 @@ class GenericUserOnboardingV2(BaseOnboarding):
             user_name = user_data.get("name", "there")
             
             return {
-                "reply": f"Perfect, {user_name}! Thanks for completing the form. Want to try BetterMeals for a month at just ₹49?"
+                "reply": f"Perfect, {user_name}! Thanks for completing the form. Want to try BetterMeals for a month at just ₹149?"
             }
         else:
             return {
@@ -88,6 +88,9 @@ class GenericUserOnboardingV2(BaseOnboarding):
             }
         
         self._set_onboarding_step(phone_number, OnboardingStep.COMPLETED)
+        # Save final onboarding data to household collection
+        self._save_final_onboarding_data(phone_number)
+        
         user_data = self._get_user_data(phone_number)
         user_name = user_data.get("name", "there")
         
@@ -102,6 +105,8 @@ class GenericUserOnboardingV2(BaseOnboarding):
         """Handle group invitation after payment."""
         if "done" in text.lower() or "✅" in text or "paid" in text.lower():
             self._set_onboarding_step(phone_number, OnboardingStep.COMPLETED)
+            # Save final onboarding data to household collection
+            self._save_final_onboarding_data(phone_number)
             
             # In production, create user record and household in database
             self._create_user_record(phone_number)
