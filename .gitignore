@@ -3,3 +3,4 @@ groq_env/
 data/
 .ipynb_checkpoints/
 *.pyc
+*key.json
