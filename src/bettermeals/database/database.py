@@ -23,6 +23,10 @@ class Database:
             logger.error(f"Failed to initialize database connection: {str(e)}")
             raise
 
+    #######################################
+    ######## HOUSEHOLD ##########
+    #######################################
+
     def find_user_by_phone(self, phone_number: str):
         """Find user by WhatsApp phone number"""
         try:
@@ -80,6 +84,10 @@ class Database:
         except Exception as e:
             logger.error(f"Error updating household data for ID {household_id}: {str(e)}")
             raise
+
+    #######################################
+    ######## ONBOARDING WORKFLOW ##########
+    #######################################
 
     def save_onboarding_message(self, phone_number: str, message_data: Dict[str, Any]) -> bool:
         """Save individual onboarding message to database"""
@@ -157,7 +165,45 @@ class Database:
             logger.error(f"Error saving final onboarding data for phone {phone_number}: {str(e)}")
             return False
 
+    #######################################
+    ######## WEEKLY PLAN WORKFLOW #########
+    #######################################
 
+    def save_weekly_plan_message(self, phone_number: str, message_data: Dict[str, Any]):
+        """Save weekly plan message to database"""
+        try:
+            logger.debug(f"Saving onboarding message for phone: {phone_number}")
+            messages_ref = self.db.collection("chat_messages")
+
+            message_data["phone_number"] = phone_number
+            message_data["timestamp"] = datetime.now()
+
+            messages_ref.add(message_data)
+            logger.debug(f"Successfully saved weekly plan message for phone: {phone_number}")
+            return True
+        except Exception as e:
+            logger.error(f"Error saving weekly plan message for phone {phone_number}: {str(e)}")
+            return False
+
+    def get_weekly_plan_messages(self, phone_number: str) -> List[Dict[str, Any]]:
+        """Get all weekly plan messages for a phone number"""
+        try:
+            logger.debug(f"Getting weekly plan messages for phone: {phone_number}")
+            messages_ref = self.db.collection("chat_messages")
+            q = messages_ref.where("phone_number", "==", phone_number)
+            docs = list(q.stream())
+            messages = []
+            for doc in docs:
+                data = doc.to_dict()
+                data["id"] = doc.id
+                messages.append(data)
+            messages.sort(key=lambda x: x.get("timestamp", datetime.min), reverse=True)
+            return messages
+        except Exception as e:
+            logger.error(f"Error getting weekly plan messages for phone {phone_number}: {str(e)}")
+            return []
+
+    
 
 # -------------------- Singleton Instance -------------------- #
 _db_instance = None
