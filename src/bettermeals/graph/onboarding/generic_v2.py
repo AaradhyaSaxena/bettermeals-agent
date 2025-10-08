@@ -51,7 +51,7 @@ class GenericUserOnboardingV2(BaseOnboarding):
         completion_keywords = ["done", "completed", "finished"]
         # Import locally to avoid circular import
         from .service import onboarding_service
-        if any(keyword in text.lower() for keyword in completion_keywords) and onboarding_service.check_if_onboarded(phone_number)[0]:
+        if any(keyword in text.lower() for keyword in completion_keywords) and onboarding_service.check_if_onboarding_form_submitted(phone_number)[0]:
             self._set_onboarding_step(phone_number, OnboardingStep.TRIAL_OFFER)
             user_data = self._get_user_data(phone_number)
             user_name = user_data.get("name", "there")

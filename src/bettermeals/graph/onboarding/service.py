@@ -28,6 +28,25 @@ class OnboardingService:
             household_data = self.get_household_from_phone_num(phone_number)
             
             # User is considered onboarded if they have household data
+            is_onboarded = household_data.get("onboarding").get("status") == "completed"
+            logger.info(f"User {phone_number} onboarded status: {is_onboarded}")
+            return is_onboarded, household_data
+            
+        except Exception as e:
+            logger.error(f"Error checking onboarding status: {str(e)}")
+            return False, None
+    
+    def check_if_onboarding_form_submitted(self, phone_number: str) -> Tuple[bool, Optional[Dict[str, Any]]]:
+        """Check if user is already onboarded based on webhook payload."""
+        try:
+            if phone_number is None or phone_number == "":
+                logger.info("No phone number found in payload")
+                return False, None
+                
+            logger.info(f"Checking onboarding status for phone: {phone_number}")
+            household_data = self.get_household_from_phone_num(phone_number)
+            
+            # User is considered onboarded if they have household data
             is_onboarded = household_data is not None
             logger.info(f"User {phone_number} onboarded status: {is_onboarded}")
             return is_onboarded, household_data

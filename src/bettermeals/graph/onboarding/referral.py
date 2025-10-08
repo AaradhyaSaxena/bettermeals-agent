@@ -64,12 +64,14 @@ class ReferralUserOnboarding(BaseOnboarding):
 
     def _handle_form_completion(self, text: str, phone_number: str) -> Dict[str, Any]:
         """Handle form completion step."""
-        if "done" in text.lower() or "completed" in text.lower() or "finished" in text.lower() or "✅" in text:
+        completion_keywords = ["done", "completed", "finished"]
+        # Import locally to avoid circular import
+        from .service import onboarding_service
+        if any(keyword in text.lower() for keyword in completion_keywords) and onboarding_service.check_if_onboarding_form_submitted(phone_number)[0]:
             self._set_onboarding_step(phone_number, OnboardingStep.TRIAL_OFFER)
             user_data = self._get_user_data(phone_number)
             user_name = user_data.get("name", "there")
             treatment_plan = user_data.get("treatment_plan", "illness")
-            
             return {
                 "reply": f"Perfect, {user_name}! Thanks for completing the form. BetterMeals will help you recover from {treatment_plan.lower()}. Since you were referred by Super Health hospital, you get the first month for just ₹299 instead of ₹499!"
             }
@@ -77,7 +79,6 @@ class ReferralUserOnboarding(BaseOnboarding):
             return {
                 "reply": "Please complete the onboarding form first: https://bettermeals.in/onboarding \n\nLet me know once you're done!"
             }
-    
     
     
     def _handle_trial_offer(self, text: str, phone_number: str) -> Dict[str, Any]:
