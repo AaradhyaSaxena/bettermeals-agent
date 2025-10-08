@@ -1,0 +1,10 @@
+version: "3.9"
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - AWS_REGION=ap-south-1
+      - SECRETS_MANAGER_SECRET_NAME=prod/bettermeals-backend/env
+    restart: unless-stopped
