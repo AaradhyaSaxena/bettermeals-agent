@@ -166,30 +166,30 @@ class Database:
             return False
 
     #######################################
-    ######## WEEKLY PLAN WORKFLOW #########
+    ######## GENERIC WORKFLOW REF #########
     #######################################
 
-    def save_weekly_plan_message(self, phone_number: str, message_data: Dict[str, Any]):
-        """Save weekly plan message to database"""
+    def save_workflow_message(self, phone_number: str, message_data: Dict[str, Any], collection_name: str):
+        """Save workflow message to database"""
         try:
-            logger.debug(f"Saving onboarding message for phone: {phone_number}")
-            messages_ref = self.db.collection("chat_messages")
+            logger.debug(f"Saving workflow message for phone: {phone_number}")
+            messages_ref = self.db.collection(collection_name)
 
             message_data["phone_number"] = phone_number
             message_data["timestamp"] = datetime.now()
 
             messages_ref.add(message_data)
-            logger.debug(f"Successfully saved weekly plan message for phone: {phone_number}")
+            logger.debug(f"Successfully saved workflow message for phone: {phone_number}")
             return True
         except Exception as e:
-            logger.error(f"Error saving weekly plan message for phone {phone_number}: {str(e)}")
+            logger.error(f"Error saving workflow message for phone {phone_number}: {str(e)}")
             return False
 
-    def get_weekly_plan_messages(self, phone_number: str) -> List[Dict[str, Any]]:
-        """Get all weekly plan messages for a phone number"""
+    def get_workflow_messages(self, phone_number: str, collection_name: str) -> List[Dict[str, Any]]:
+        """Get all workflow messages for a phone number"""
         try:
-            logger.debug(f"Getting weekly plan messages for phone: {phone_number}")
-            messages_ref = self.db.collection("chat_messages")
+            logger.debug(f"Getting workflow messages for phone: {phone_number}")
+            messages_ref = self.db.collection(collection_name)
             q = messages_ref.where("phone_number", "==", phone_number)
             docs = list(q.stream())
             messages = []
@@ -200,10 +200,20 @@ class Database:
             messages.sort(key=lambda x: x.get("timestamp", datetime.min), reverse=True)
             return messages
         except Exception as e:
-            logger.error(f"Error getting weekly plan messages for phone {phone_number}: {str(e)}")
+            logger.error(f"Error getting workflow messages for phone {phone_number}: {str(e)}")
             return []
 
-    
+    def save_final_workflow_data(self, phone_number: str, workflow_data: Dict[str, Any], collection_name: str) -> bool:
+        """Save final workflow data to database"""
+        try:
+            logger.debug(f"Saving final workflow data for phone: {phone_number}")
+            workflow_ref = self.db.collection(collection_name)
+            workflow_ref.add(workflow_data)
+            logger.debug(f"Successfully saved final workflow data for phone: {phone_number}")
+            return True
+        except Exception as e:
+            logger.error(f"Error saving final workflow data for phone {phone_number}: {str(e)}")
+            return False
 
 # -------------------- Singleton Instance -------------------- #
 _db_instance = None

@@ -15,7 +15,7 @@ class OnboardingService:
     def __init__(self):
         self.generic_onboarding = GenericUserOnboardingV2()
         self.referral_onboarding = ReferralUserOnboarding()
-        # In production, you might load these dynamically or from a config
+        # TODO: In production, we might load these dynamically or from a config
 
     def get_household_data(self, phone_number: str) -> Tuple[bool, Optional[Dict[str, Any]]]:
         """Check if user is already onboarded based on webhook payload."""
