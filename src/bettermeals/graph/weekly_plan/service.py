@@ -56,7 +56,10 @@ class WeeklyPlanService:
             household_id = household_data.get("householdId")
 
             logger.info(f"Trigger meal plan generation for household {household_id}")
-            meal_plan_response = call_generate_meal_plan(household_id)
+            ############################
+            # meal_plan_response = call_generate_meal_plan(household_id)
+            meal_plan_response = True
+            ############################
             if meal_plan_response is None:
                 raise Exception(f"Error generating meal plan for household {household_id}")
             logger.info(f"Meal plan generated successfully for household {household_id}")

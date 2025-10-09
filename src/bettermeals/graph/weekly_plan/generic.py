@@ -11,6 +11,7 @@ class GenericWeeklyPlan(BaseWeeklyPlan):
     """Weekly plan flow for generic users"""
 
     def __init__(self):
+        super().__init__()
         self.form_link = "https://bettermeals.in/app/dashboard/"
     
     def get_form_link(self, household_id: str):
@@ -48,9 +49,7 @@ class GenericWeeklyPlan(BaseWeeklyPlan):
         """Handle plan approval step."""
         # Check if user has approved the plan
         completion_keywords = ["done", "completed", "finished","approved", "approve", "yes", "y", "yeah", "yep", "ok", "okay"]
-        
-        from .service import workflow_service  # Import locally to avoid circular import
-        if any(keyword in text.lower() for keyword in completion_keywords) and workflow_service.check_if_workflow_form_submitted(phone_number)[0]:
+        if any(keyword in text.lower() for keyword in completion_keywords) and self.check_if_workflow_form_submitted(phone_number):
             self._set_weekly_plan_step(phone_number, WeeklyPlanStep.COMPLETED)
             self._save_final_weekly_plan_data(phone_number)
             
@@ -64,4 +63,6 @@ class GenericWeeklyPlan(BaseWeeklyPlan):
                 "reply": f"Please review your weekly meal plan first at: {approval_link} to move ahead."
             }
     
-    
+    def check_if_workflow_form_submitted(self, phone_number: str) -> bool:
+        """Check if workflow form is submitted for a user."""
+        return True

@@ -73,7 +73,7 @@ class BaseWeeklyPlan(ABC):
             messages = db.get_workflow_messages(phone_number, self.workflow_transaction_collection_name)
             filter_messages = self._filter_messages(messages)
             
-            if not filter_messages:
+            if filter_messages == []:
                 return WeeklyPlanStep.STARTED
             
             # Find the latest step update (system message with step_update=True)
@@ -109,13 +109,13 @@ class BaseWeeklyPlan(ABC):
             db.save_workflow_message(phone_number, step_data, self.workflow_transaction_collection_name)
             logger.debug(f"Updated weekly plan step to {step.value} for {phone_number}")
         except Exception as e:
-            logger.error(f"Error setting weekly plan step for {household_id}: {str(e)}")
+            logger.error(f"Error setting weekly plan step for {phone_number}: {str(e)}")
     
     def _get_user_data(self, phone_number: str) -> Dict[str, Any]:
         """Get user data for a phone number from database."""
         try:
             db = get_db()
-            messages = db.get_workflow_messages(phone_number)
+            messages = db.get_workflow_messages(phone_number, self.workflow_transaction_collection_name)
             
             # Extract user data from messages
             user_data = {}

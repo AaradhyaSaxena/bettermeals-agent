@@ -29,7 +29,7 @@ async def whatsapp_webhook(req: dict, graph=Depends(get_graph)):
         return weekly_plan_service.process_weekly_plan_message(req, household_data)
     
     return {
-        "reply": "You are now onboarded on bettermeals. Please start with your weekly planning tasks."
+        "reply": "Hi, How can I help you today?"
     }
     # text, household_id, sender_role = WebhookProcessor.extract_payload_data(req)
     # state_in, config = WebhookProcessor.build_graph_input(text, household_id, sender_role)
