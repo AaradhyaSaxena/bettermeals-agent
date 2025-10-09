@@ -14,8 +14,6 @@ class WeeklyPlanStep(Enum):
     """Enumeration of weekly plan steps"""
     STARTED = "started"
     PLAN_APPROVAL = "plan_approval"
-    SUBSTITUTION_SELECTION = "substitution_selection"
-    CHECKOUT_CONFIRMATION = "checkout_confirmation"
     COMPLETED = "approved"
 
 
@@ -24,6 +22,8 @@ class BaseWeeklyPlan(ABC):
     
     def __init__(self):
         self.weekly_plan_steps = self._initialize_steps()
+        self.workflow_transaction_collection_name = "weekly_plan_chats"
+        self.workflow_status_collection_name = "weekly_plan_status"
     
     @abstractmethod
     def _initialize_steps(self) -> Dict[WeeklyPlanStep, callable]:
@@ -56,13 +56,13 @@ class BaseWeeklyPlan(ABC):
                 return response
             else:
                 # Default fallback
-                fallback_response = {"reply": "Let's start your weekly meal planning! Please approve your plan at the link provided."}
+                fallback_response = {"reply": "Let's start your weekly meal planning! Please approve your plan for this week."}
                 self._save_message(phone_number, "bot", fallback_response["reply"])
                 return fallback_response
                 
         except Exception as e:
             logger.error(f"Error processing {self.get_weekly_plan_type()} weekly plan message: {str(e)}")
-            error_response = {"reply": "Sorry, I encountered an error. Please try again."}
+            error_response = {"reply": "Sorry, We're facing some trouble. Please try again."}
             self._save_message(phone_number, "bot", error_response["reply"])
             return error_response
     
@@ -70,17 +70,17 @@ class BaseWeeklyPlan(ABC):
         """Get the current weekly plan step for a user from database."""
         try:
             db = get_db()
-            messages = db.get_weekly_plan_messages(phone_number)
+            messages = db.get_workflow_messages(phone_number, self.workflow_transaction_collection_name)
+            filter_messages = self._filter_messages(messages)
             
-            if not messages:
-                # No previous messages, start fresh
+            if not filter_messages:
                 return WeeklyPlanStep.STARTED
             
             # Find the latest step update (system message with step_update=True)
-            latest_step = WeeklyPlanStep.PLAN_APPROVAL
-            for message in messages:  # Start from most recent
+            latest_step = WeeklyPlanStep.STARTED
+            for message in filter_messages:  # Start from most recent
                 if message.get("step_update") and message.get("role") == "system":
-                    current_step_str = message.get("current_step", WeeklyPlanStep.PLAN_APPROVAL.value)
+                    current_step_str = message.get("current_step", WeeklyPlanStep.STARTED.value)
                     try:
                         latest_step = WeeklyPlanStep(current_step_str)
                         break
@@ -93,9 +93,9 @@ class BaseWeeklyPlan(ABC):
             
         except Exception as e:
             logger.error(f"Error getting weekly plan step from database for {phone_number}: {str(e)}")
-            return WeeklyPlanStep.PLAN_APPROVAL
+            return WeeklyPlanStep.STARTED
     
-    def _set_weekly_plan_step(self, household_id: str, step: WeeklyPlanStep):
+    def _set_weekly_plan_step(self, phone_number: str, step: WeeklyPlanStep):
         """Set the weekly plan step for a user by saving it to database."""
         try:
             db = get_db()
@@ -106,16 +106,16 @@ class BaseWeeklyPlan(ABC):
                 "current_step": step.value,
                 "step_update": True
             }
-            db.save_weekly_plan_message(household_id, step_data)
-            logger.debug(f"Updated weekly plan step to {step.value} for {household_id}")
+            db.save_workflow_message(phone_number, step_data, self.workflow_transaction_collection_name)
+            logger.debug(f"Updated weekly plan step to {step.value} for {phone_number}")
         except Exception as e:
             logger.error(f"Error setting weekly plan step for {household_id}: {str(e)}")
     
-    def _get_user_data(self, household_id: str) -> Dict[str, Any]:
+    def _get_user_data(self, phone_number: str) -> Dict[str, Any]:
         """Get user data for a phone number from database."""
         try:
             db = get_db()
-            messages = db.get_weekly_plan_messages(household_id)
+            messages = db.get_workflow_messages(phone_number)
             
             # Extract user data from messages
             user_data = {}
@@ -126,15 +126,10 @@ class BaseWeeklyPlan(ABC):
                     content = message.get("content", "")
                     if current_step == WeeklyPlanStep.PLAN_APPROVAL.value:
                         user_data["plan_approval"] = content
-                    elif current_step == WeeklyPlanStep.SUBSTITUTION_SELECTION.value:
-                        user_data["substitution_selection"] = content
-                    elif current_step == WeeklyPlanStep.CHECKOUT_CONFIRMATION.value:
-                        user_data["checkout_confirmation"] = content
             
-            return user_data
-            
+            return user_data 
         except Exception as e:
-            logger.error(f"Error getting user data from database for {household_id}: {str(e)}")
+            logger.error(f"Error getting user data from database for {phone_number}: {str(e)}")
             return {}
     
     def _save_message(self, phone_number: str, role: str, content: str):
@@ -148,7 +143,7 @@ class BaseWeeklyPlan(ABC):
                 "weekly_plan_type": self.get_weekly_plan_type(),
                 "current_step": current_step.value
             }
-            db.save_weekly_plan_message(phone_number, message_data)
+            db.save_workflow_message(phone_number, message_data, self.workflow_transaction_collection_name)
             logger.debug(f"Saved {role} message for {phone_number} at step {current_step.value}")
         except Exception as e:
             logger.error(f"Error saving message for {phone_number}: {str(e)}")
@@ -174,7 +169,7 @@ class BaseWeeklyPlan(ABC):
             }
             
             # Save to household collection
-            success = db.save_final_weekly_plan_data(phone_number, weekly_plan_data)
+            success = db.save_final_workflow_data(phone_number, weekly_plan_data, self.workflow_status_collection_name)
             if success:
                 logger.info(f"Successfully saved final weekly plan data for {phone_number}")
             else:
@@ -182,3 +177,7 @@ class BaseWeeklyPlan(ABC):
                 
         except Exception as e:
             logger.error(f"Error saving final weekly plan data for {phone_number}: {str(e)}")
+
+    def _filter_messages(self, messages):
+        """Filter messages to only include messages that are relevant to the workflow."""
+        return messages

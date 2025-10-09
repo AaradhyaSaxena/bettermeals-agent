@@ -81,7 +81,7 @@ class BaseWorkflow(ABC):
             
             # Find the latest step update (system message with step_update=True)
             latest_step = WorkflowStep.GREETING
-            for message in messages:  # Start from most recent
+            for message in filter_messages:  # Start from most recent
                 if message.get("step_update") and message.get("role") == "system":
                     current_step_str = message.get("current_step", WorkflowStep.GREETING.value)
                     try:

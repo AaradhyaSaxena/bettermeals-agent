@@ -46,30 +46,6 @@ class WeeklyPlanService:
             logger.error(f"Error checking weekly plan lock status: {str(e)}")
             return True
 
-    # def start_weekly_plan_approval(self, payload: Dict[str, Any], household_data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    #     """Start weekly plan approval process for a user."""
-    #     try:
-    #         phone_number = payload.get("phone_number")
-    #         if not household_data:
-    #             raise ValueError(f"No household data for {phone_number}")
-    #         household_id = household_data.get("householdId")
-
-    #         logger.info(f"Trigger meal plan generation for household {household_id}")
-    #         meal_plan_response = call_generate_meal_plan(household_id)
-    #         if meal_plan_response is None:
-    #             raise Exception(f"Error generating meal plan for household {household_id}")
-    #         logger.info(f"Meal plan generated successfully for household {household_id}")
-            
-    #         weekly_plan_type = self._determine_weekly_plan_type(payload)
-    #         if weekly_plan_type == "generic":
-    #             return self.generic_weekly_plan.start_plan_approval(phone_number, household_id)
-    #         else:
-    #             return self.generic_weekly_plan.start_plan_approval(phone_number, household_id)
-                
-    #     except Exception as e:
-    #         logger.error(f"Error starting weekly plan approval: {str(e)}")
-    #         return {"reply": "Sorry, I encountered an error starting your meal planning. Please try again."}
-
     def process_weekly_plan_message(self, payload: Dict[str, Any], household_data: Dict[str, Any]) -> Dict[str, Any]:
         """Process weekly plan message and return appropriate response."""
         try:
@@ -100,8 +76,7 @@ class WeeklyPlanService:
 
     def _determine_weekly_plan_type(self, payload: Dict[str, Any]) -> str:
         """Determine the type of weekly plan based on payload or other logic."""
-        # For now, always return generic
-        # In production, this could check user tier, preferences, etc.
+        # TODO: Add options. For now, always return generic.
         return "generic"
 
 
