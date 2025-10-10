@@ -148,7 +148,7 @@ class BaseWeeklyPlan(ABC):
         except Exception as e:
             logger.error(f"Error saving message for {phone_number}: {str(e)}")
 
-    def _save_final_weekly_plan_data(self, phone_number: str):
+    def _save_final_weekly_plan_data(self, phone_number: str, household_id: str):
         """Save final weekly plan data to household collection."""
         try:
             db = get_db()
@@ -165,12 +165,15 @@ class BaseWeeklyPlan(ABC):
                 "user_data": user_data,
                 "started_at": datetime.now().isoformat(),
                 "completed_at": datetime.now().isoformat(),
-                "status": "completed"
+                "status": "completed",
+                "current_week_num": datetime.now().isocalendar()[1]
             }
             
             # Save to household collection
-            success = db.save_final_workflow_data(phone_number, weekly_plan_data, self.workflow_status_collection_name)
-            if success:
+            success_workflow = db.save_final_workflow_data(phone_number, weekly_plan_data, self.workflow_status_collection_name)
+            success_household = db.weeklyplan_completion_status_hld(household_id)
+            db.weeklyplan_completion_status_hld(household_id)
+            if success_workflow and success_household:
                 logger.info(f"Successfully saved final weekly plan data for {phone_number}")
             else:
                 logger.error(f"Failed to save final weekly plan data for {phone_number}")

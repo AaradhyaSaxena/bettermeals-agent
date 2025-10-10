@@ -215,6 +215,25 @@ class Database:
             logger.error(f"Error saving final workflow data for phone {phone_number}: {str(e)}")
             return False
 
+    def weeklyplan_completion_status_hld(self, household_id: str) -> bool:
+        """Update weekly plan status for a household"""
+        try:
+            current_week_num = datetime.now().isocalendar()[1]
+            weekly_plan_status = {
+                "status": "approved",
+                "week": current_week_num
+            }
+            logger.debug(f"Updating weekly plan status for household: {household_id}, week: {current_week_num}")
+            household_ref = self.db.collection("household")
+            doc = household_ref.document(household_id)
+            doc.update({"weekly_plan": weekly_plan_status})
+            logger.debug(f"Successfully saved weekly plan status for household: {household_id}, week: {current_week_num}")
+            return True
+        except Exception as e:
+            logger.error(f"Error updating weekly plan status for household {household_id}: {str(e)}")
+            return False
+
+
 # -------------------- Singleton Instance -------------------- #
 _db_instance = None
 _db_lock = None

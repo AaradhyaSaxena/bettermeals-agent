@@ -51,7 +51,7 @@ class GenericWeeklyPlan(BaseWeeklyPlan):
         completion_keywords = ["done", "completed", "finished","approved", "approve", "yes", "y", "yeah", "yep", "ok", "okay"]
         if any(keyword in text.lower() for keyword in completion_keywords) and self.check_if_workflow_form_submitted(phone_number):
             self._set_weekly_plan_step(phone_number, WeeklyPlanStep.COMPLETED)
-            self._save_final_weekly_plan_data(phone_number)
+            self._save_final_weekly_plan_data(phone_number, household_id)
             
             return {
                 "reply": "Great! Thanks for confirming your preferences for the week."
