@@ -50,7 +50,7 @@ class GenericWeeklyPlan(BaseWeeklyPlan):
         """Handle plan approval step."""
         # Check if user has approved the plan
         completion_keywords = ["done", "completed", "finished","approved", "approve", "yes", "y", "yeah", "yep", "ok", "okay"]
-        if any(keyword in text.lower() for keyword in completion_keywords) and self.check_if_workflow_form_submitted(phone_number):
+        if any(keyword in text.lower() for keyword in completion_keywords) and self.check_if_workflow_form_submitted(household_id):
             self._set_weekly_plan_step(phone_number, WeeklyPlanStep.COMPLETED)
             self._save_final_weekly_plan_data(phone_number, household_id)
             
@@ -64,7 +64,7 @@ class GenericWeeklyPlan(BaseWeeklyPlan):
                 "reply": f"Please review your weekly meal plan first at: {approval_link} to move ahead."
             }
     
-    def check_if_workflow_form_submitted(self, phone_number: str) -> bool:
+    def check_if_workflow_form_submitted(self, household_id: str) -> bool:
         """Check if workflow form is submitted for a user."""
         db = get_db()
-        return db.check_if_weekly_plan_completed(phone_number)
+        return db.check_if_weekly_plan_completed(household_id)

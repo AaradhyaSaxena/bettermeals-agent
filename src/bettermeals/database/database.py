@@ -227,11 +227,11 @@ class Database:
                 "status": "approved",
                 "week": year_week
             }
-            logger.debug(f"Updating weekly plan status for household: {household_id}, week: {current_week_num}")
+            logger.debug(f"Updating weekly plan status for household: {household_id}, week: {year_week}")
             household_ref = self.db.collection("household")
             doc = household_ref.document(household_id)
             doc.update({"weekly_plan": weekly_plan_status})
-            logger.debug(f"Successfully saved weekly plan status for household: {household_id}, week: {current_week_num}")
+            logger.debug(f"Successfully saved weekly plan status for household: {household_id}, week: {year_week}")
             return True
         except Exception as e:
             logger.error(f"Error updating weekly plan status for household {household_id}: {str(e)}")
@@ -244,14 +244,14 @@ class Database:
             hid_year_week = f"{household_id}-{year_week}"
             household_ref = self.db.collection("weekly_meal_plan")
             
-            # Use select() with empty list to only check existence without fetching data
-            doc = household_ref.document(hid_year_week).select([]).get()
+            # Check if document exists without fetching data
+            doc = household_ref.document(hid_year_week).get()
             
             if doc.exists:
-                logger.debug(f"Weekly plan exists for household: {household_id}, week: {year_week}")
+                logger.info(f"Weekly plan exists for household: {household_id}, week: {year_week}")
                 return True
             else:
-                logger.debug(f"No weekly plan found for household: {household_id}, week: {year_week}")
+                logger.info(f"No weekly plan found for household: {household_id}, week: {year_week}")
                 return False
                 
         except Exception as e:

@@ -4,14 +4,14 @@ from .settings import settings
 
 
 EXTERNAL_ENDPOINTS: Dict[str, str] = {
-    "SCORE_MEAL": f"{settings.bm_api_base}/meals/score",
-    "PLACE_ORDER": f"{settings.bm_api_base}/orders/checkout",
+    "SCORE_MEAL": f"{settings.bm_backend_api_base}/meals/score",
+    "PLACE_ORDER": f"{settings.bm_backend_api_base}/orders/checkout",
 }
 
 
 def call_generate_meal_plan(household_id: str) -> Dict[str, Any]:
     """Call the external meal plan generation endpoint."""
-    resp = requests.get(f"{settings.bm_api_base}/weekly-meal-plan/{household_id}", timeout=10)
+    resp = requests.get(f"{settings.bm_backend_api_base}/api/v1/athena/weekly-meal-plan/{household_id}", timeout=10)
     resp.raise_for_status()
     return resp.json()
 
