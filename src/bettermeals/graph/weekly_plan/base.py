@@ -2,7 +2,7 @@ from typing import Dict, Any, Optional
 import logging
 from enum import Enum
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from ...database.database import get_db
 
@@ -166,13 +166,12 @@ class BaseWeeklyPlan(ABC):
                 "started_at": datetime.now().isoformat(),
                 "completed_at": datetime.now().isoformat(),
                 "status": "completed",
-                "current_week_num": datetime.now().isocalendar()[1]
+                "current_week_num": (datetime.now() + timedelta(weeks=1)).strftime("%Y-%W")
             }
             
             # Save to household collection
             success_workflow = db.save_final_workflow_data(phone_number, weekly_plan_data, self.workflow_status_collection_name)
-            success_household = db.weeklyplan_completion_status_hld(household_id)
-            db.weeklyplan_completion_status_hld(household_id)
+            success_household = db.update_weeklyplan_completion_status_hld(household_id)
             if success_workflow and success_household:
                 logger.info(f"Successfully saved final weekly plan data for {phone_number}")
             else:

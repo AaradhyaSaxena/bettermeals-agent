@@ -2,6 +2,7 @@ from typing import Dict, Any
 import logging
 
 from .base import BaseWeeklyPlan, WeeklyPlanStep
+from ...database.database import get_db
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -65,4 +66,5 @@ class GenericWeeklyPlan(BaseWeeklyPlan):
     
     def check_if_workflow_form_submitted(self, phone_number: str) -> bool:
         """Check if workflow form is submitted for a user."""
-        return True
+        db = get_db()
+        return db.check_if_weekly_plan_completed(phone_number)

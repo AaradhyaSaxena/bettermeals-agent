@@ -1,7 +1,7 @@
 from csv import Error
 from typing import Dict, Any, Optional, Tuple
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from .generic import GenericWeeklyPlan
 from ...database.database import get_db
@@ -19,7 +19,7 @@ class WeeklyPlanService:
 
     def _get_current_week_number(self) -> int:
         """Get the current week number using ISO week format."""
-        return datetime.now().isocalendar()[1]
+        return (datetime.now() + timedelta(weeks=1)).strftime("%Y-%W")
 
     def is_weekly_plan_locked(self, payload: Dict[str, Any], household_data: Optional[Dict[str, Any]]) -> bool:
         """Check if weekly plan is locked (completed) for this user."""

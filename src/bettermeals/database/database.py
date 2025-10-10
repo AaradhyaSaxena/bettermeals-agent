@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Any, Union
-from datetime import datetime
+from datetime import datetime, timedelta
 from google.cloud.firestore_v1.base_query import FieldFilter
 from google.cloud import firestore
 from src.bettermeals.database.firebase_init import initialize_firebase
@@ -215,13 +215,17 @@ class Database:
             logger.error(f"Error saving final workflow data for phone {phone_number}: {str(e)}")
             return False
 
-    def weeklyplan_completion_status_hld(self, household_id: str) -> bool:
+    #######################################
+    ########### WEEKLY PLAN REF ###########
+    #######################################
+
+    def update_weeklyplan_completion_status_hld(self, household_id: str) -> bool:
         """Update weekly plan status for a household"""
         try:
-            current_week_num = datetime.now().isocalendar()[1]
+            year_week = (datetime.now() + timedelta(weeks=1)).strftime("%Y-%W")
             weekly_plan_status = {
                 "status": "approved",
-                "week": current_week_num
+                "week": year_week
             }
             logger.debug(f"Updating weekly plan status for household: {household_id}, week: {current_week_num}")
             household_ref = self.db.collection("household")
@@ -231,6 +235,27 @@ class Database:
             return True
         except Exception as e:
             logger.error(f"Error updating weekly plan status for household {household_id}: {str(e)}")
+            return False
+
+    def check_if_weekly_plan_completed(self, household_id: str) -> bool:
+        """Check if weekly plan is completed for a household"""
+        try:
+            year_week = (datetime.now() + timedelta(weeks=1)).strftime("%Y-%W")
+            hid_year_week = f"{household_id}-{year_week}"
+            household_ref = self.db.collection("weekly_meal_plan")
+            
+            # Use select() with empty list to only check existence without fetching data
+            doc = household_ref.document(hid_year_week).select([]).get()
+            
+            if doc.exists:
+                logger.debug(f"Weekly plan exists for household: {household_id}, week: {year_week}")
+                return True
+            else:
+                logger.debug(f"No weekly plan found for household: {household_id}, week: {year_week}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error checking if weekly plan is completed for household {household_id}: {str(e)}")
             return False
 
 
