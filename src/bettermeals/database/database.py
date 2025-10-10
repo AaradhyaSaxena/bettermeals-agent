@@ -222,7 +222,7 @@ class Database:
     def update_weeklyplan_completion_status_hld(self, household_id: str) -> bool:
         """Update weekly plan status for a household"""
         try:
-            year_week = (datetime.now() + timedelta(weeks=1)).strftime("%Y-%W")
+            year_week = datetime.now().strftime("%Y-%W")
             weekly_plan_status = {
                 "status": "approved",
                 "week": year_week
@@ -240,7 +240,7 @@ class Database:
     def check_if_weekly_plan_completed(self, household_id: str) -> bool:
         """Check if weekly plan is completed for a household"""
         try:
-            year_week = (datetime.now() + timedelta(weeks=1)).strftime("%Y-%W")
+            year_week = datetime.now().strftime("%Y-%W")
             hid_year_week = f"{household_id}-{year_week}"
             household_ref = self.db.collection("weekly_meal_plan")
             

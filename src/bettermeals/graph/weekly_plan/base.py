@@ -166,7 +166,7 @@ class BaseWeeklyPlan(ABC):
                 "started_at": datetime.now().isoformat(),
                 "completed_at": datetime.now().isoformat(),
                 "status": "completed",
-                "current_week_num": (datetime.now() + timedelta(weeks=1)).strftime("%Y-%W")
+                "current_week_num": datetime.now().strftime("%Y-%W")
             }
             
             # Save to household collection
