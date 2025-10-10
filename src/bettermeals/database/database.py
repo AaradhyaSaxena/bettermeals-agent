@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Any, Union
-from datetime import datetime
+from datetime import datetime, timedelta
 from google.cloud.firestore_v1.base_query import FieldFilter
 from google.cloud import firestore
 from src.bettermeals.database.firebase_init import initialize_firebase
@@ -22,6 +22,10 @@ class Database:
         except Exception as e:
             logger.error(f"Failed to initialize database connection: {str(e)}")
             raise
+
+    #######################################
+    ######## HOUSEHOLD ##########
+    #######################################
 
     def find_user_by_phone(self, phone_number: str):
         """Find user by WhatsApp phone number"""
@@ -80,6 +84,10 @@ class Database:
         except Exception as e:
             logger.error(f"Error updating household data for ID {household_id}: {str(e)}")
             raise
+
+    #######################################
+    ######## ONBOARDING WORKFLOW ##########
+    #######################################
 
     def save_onboarding_message(self, phone_number: str, message_data: Dict[str, Any]) -> bool:
         """Save individual onboarding message to database"""
@@ -157,6 +165,98 @@ class Database:
             logger.error(f"Error saving final onboarding data for phone {phone_number}: {str(e)}")
             return False
 
+    #######################################
+    ######## GENERIC WORKFLOW REF #########
+    #######################################
+
+    def save_workflow_message(self, phone_number: str, message_data: Dict[str, Any], collection_name: str):
+        """Save workflow message to database"""
+        try:
+            logger.debug(f"Saving workflow message for phone: {phone_number}")
+            messages_ref = self.db.collection(collection_name)
+
+            message_data["phone_number"] = phone_number
+            message_data["timestamp"] = datetime.now()
+
+            messages_ref.add(message_data)
+            logger.debug(f"Successfully saved workflow message for phone: {phone_number}")
+            return True
+        except Exception as e:
+            logger.error(f"Error saving workflow message for phone {phone_number}: {str(e)}")
+            return False
+
+    def get_workflow_messages(self, phone_number: str, collection_name: str) -> List[Dict[str, Any]]:
+        """Get all workflow messages for a phone number"""
+        try:
+            logger.debug(f"Getting workflow messages for phone: {phone_number}")
+            messages_ref = self.db.collection(collection_name)
+            q = messages_ref.where("phone_number", "==", phone_number)
+            docs = list(q.stream())
+            messages = []
+            for doc in docs:
+                data = doc.to_dict()
+                data["id"] = doc.id
+                messages.append(data)
+            messages.sort(key=lambda x: x.get("timestamp", datetime.min), reverse=True)
+            return messages
+        except Exception as e:
+            logger.error(f"Error getting workflow messages for phone {phone_number}: {str(e)}")
+            return []
+
+    def save_final_workflow_data(self, phone_number: str, workflow_data: Dict[str, Any], collection_name: str) -> bool:
+        """Save final workflow data to database"""
+        try:
+            logger.debug(f"Saving final workflow data for phone: {phone_number}")
+            workflow_ref = self.db.collection(collection_name)
+            workflow_ref.add(workflow_data)
+            logger.debug(f"Successfully saved final workflow data for phone: {phone_number}")
+            return True
+        except Exception as e:
+            logger.error(f"Error saving final workflow data for phone {phone_number}: {str(e)}")
+            return False
+
+    #######################################
+    ########### WEEKLY PLAN REF ###########
+    #######################################
+
+    def update_weeklyplan_completion_status_hld(self, household_id: str) -> bool:
+        """Update weekly plan status for a household"""
+        try:
+            year_week = datetime.now().strftime("%Y-%W")
+            weekly_plan_status = {
+                "status": "approved",
+                "week": year_week
+            }
+            logger.debug(f"Updating weekly plan status for household: {household_id}, week: {year_week}")
+            household_ref = self.db.collection("household")
+            doc = household_ref.document(household_id)
+            doc.update({"weekly_plan": weekly_plan_status})
+            logger.debug(f"Successfully saved weekly plan status for household: {household_id}, week: {year_week}")
+            return True
+        except Exception as e:
+            logger.error(f"Error updating weekly plan status for household {household_id}: {str(e)}")
+            return False
+
+    def check_if_weekly_plan_completed(self, household_id: str) -> bool:
+        """Check if weekly plan is completed for a household"""
+        try:
+            year_week = datetime.now().strftime("%Y-%W")
+            hid_year_week = f"{household_id}-{year_week}"
+            household_ref = self.db.collection("weekly_meal_plan")
+            
+            # Check if document exists without fetching data
+            doc = household_ref.document(hid_year_week).get()
+            
+            if doc.exists:
+                logger.info(f"Weekly plan exists for household: {household_id}, week: {year_week}")
+                return True
+            else:
+                logger.info(f"No weekly plan found for household: {household_id}, week: {year_week}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error checking if weekly plan is completed for household {household_id}: {str(e)}")
+            return False
 
 
 # -------------------- Singleton Instance -------------------- #

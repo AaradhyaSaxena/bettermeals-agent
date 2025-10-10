@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from ...utils.webhook_processor import WebhookProcessor
 from ...graph.service import graph_service
 from ...graph.onboarding import onboarding_service
+from ...graph.weekly_plan import weekly_plan_service
 
 router = APIRouter()
 
@@ -15,14 +16,21 @@ def get_graph():
 async def whatsapp_webhook(req: dict, graph=Depends(get_graph)):
     """Handle incoming WhatsApp webhook requests."""
     phone_number = req.get("phone_number")
-    is_onboarded, hld_data = onboarding_service.check_if_onboarded(phone_number)
+    household_data = onboarding_service.get_household_data(phone_number)
+    is_onboarded = household_data and household_data.get("onboarding", {}).get("status") == "completed"
+    
+    ### Onboard new users (new phone numbers)
     if not is_onboarded:
-        # Trigger onboarding flow
         return onboarding_service.process_onboarding_message(req)
-    else:
-        return {
-            "reply": "You are now onboarded on bettermeals. Please start with your weekly planning tasks."
-        }
+
+    ### First thing each week is to approve the weekly plan
+    weekly_plan_locked = weekly_plan_service.is_weekly_plan_locked(req, household_data)
+    if not weekly_plan_locked:
+        return weekly_plan_service.process_weekly_plan_message(req, household_data)
+    
+    return {
+        "reply": "Hi, How can I help you today?"
+    }
     # text, household_id, sender_role = WebhookProcessor.extract_payload_data(req)
     # state_in, config = WebhookProcessor.build_graph_input(text, household_id, sender_role)
     # final = await graph.ainvoke(state_in, config)
