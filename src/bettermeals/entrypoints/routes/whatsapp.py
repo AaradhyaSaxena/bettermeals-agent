@@ -3,6 +3,7 @@ from ...utils.webhook_processor import WebhookProcessor
 from ...graph.service import graph_service
 from ...graph.onboarding import onboarding_service
 from ...graph.weekly_plan import weekly_plan_service
+from ...graph.cook_assistant import cook_assistant_service
 
 router = APIRouter()
 
@@ -16,8 +17,11 @@ def get_graph():
 async def whatsapp_webhook(req: dict, graph=Depends(get_graph)):
     """Handle incoming WhatsApp webhook requests."""
     phone_number = req.get("phone_number")
+    is_cook = cook_assistant_service.is_cook(phone_number)
+    if is_cook:
+        return await cook_assistant_service.process_cook_message(req)
     household_data = onboarding_service.get_household_data(phone_number)
-    is_onboarded = household_data and household_data.get("onboarding", {}).get("status") == "completed"
+    is_onboarded = household_data is not None and household_data.get("onboarding", {}).get("status") == "completed"
     
     ### Onboard new users (new phone numbers)
     if not is_onboarded:
