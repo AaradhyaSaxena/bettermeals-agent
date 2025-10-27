@@ -19,7 +19,7 @@ async def whatsapp_webhook(req: dict, graph=Depends(get_graph)):
     phone_number = req.get("phone_number")
     is_cook = cook_assistant_service.is_cook(phone_number)
     if is_cook:
-        return cook_assistant_service.process_cook_message(req)
+        return await cook_assistant_service.process_cook_message(req)
     household_data = onboarding_service.get_household_data(phone_number)
     is_onboarded = household_data is not None and household_data.get("onboarding", {}).get("status") == "completed"
     

@@ -5,3 +5,4 @@ data/
 *.pyc
 *key.json
 *.agentcore.json
+*.log

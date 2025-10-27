@@ -1,6 +1,5 @@
 from typing import Dict, Any, Optional, List
 import logging
-import asyncio
 from ...database.database import get_db
 from .bedrock_client import invoke_cook_assistant
 
@@ -28,7 +27,7 @@ class CookAssistantService:
             logger.error(f"Error checking cook status for {phone_number}: {str(e)}")
             return False
 
-    def process_cook_message(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def process_cook_message(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Process cook assistant message and return appropriate response"""
         try:
             phone_number = payload.get("phone_number")
@@ -47,7 +46,7 @@ class CookAssistantService:
             
             # Invoke bedrock agent
             try:
-                response_text = asyncio.run(invoke_cook_assistant(text, conversation_history))
+                response_text = await invoke_cook_assistant(text, conversation_history)
             except Exception as e:
                 logger.error(f"Error invoking bedrock agent: {str(e)}")
                 response_text = "I'm sorry, I encountered an error. Please try again."
