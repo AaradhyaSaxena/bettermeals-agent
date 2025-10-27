@@ -5,6 +5,8 @@ This module provides functions to interact with the AWS Bedrock/MCP Cook Assista
 It handles authentication, MCP client setup, and agent invocation.
 """
 
+import os
+from pathlib import Path
 from bedrock_agentcore.identity.auth import requires_access_token
 from strands.tools.mcp import MCPClient
 from mcp.client.streamable_http import streamablehttp_client
@@ -12,6 +14,14 @@ from strands import Agent
 from strands.models import BedrockModel
 from typing import List, Dict, Any, Optional
 from .utils import get_ssm_parameter
+
+# Set the path to .agentcore.json in this directory
+_config_dir = Path(__file__).parent
+_config_file = _config_dir / ".agentcore.json"
+
+# Set AGENTCORE_CONFIG_PATH environment variable if not already set
+if "AGENTCORE_CONFIG_PATH" not in os.environ and _config_file.exists():
+    os.environ["AGENTCORE_CONFIG_PATH"] = str(_config_file)
 
 gateway_access_token = None
 
