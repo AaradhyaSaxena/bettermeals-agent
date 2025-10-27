@@ -2,7 +2,7 @@
 Cook Assistant Bedrock Client
 
 This module provides functions to interact with the AWS Bedrock/MCP Cook Assistant agent.
-It handles authentication, MCP client setup, and agent invocation.
+It handles authentication, MCP client setup, and agent invocation with AgentCore memory integration.
 """
 
 import os
@@ -12,8 +12,10 @@ from strands.tools.mcp import MCPClient
 from mcp.client.streamable_http import streamablehttp_client
 from strands import Agent
 from strands.models import BedrockModel
-from typing import List, Dict, Any, Optional
-from .utils import get_ssm_parameter
+from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig
+from bedrock_agentcore.memory.integrations.strands.session_manager import AgentCoreMemorySessionManager
+from .utils import get_ssm_parameter, get_aws_region
+from .memory_config import get_memory_resource_id
 
 # Set the path to .agentcore.json in this directory
 _config_dir = Path(__file__).parent
@@ -75,19 +77,43 @@ def create_mcp_client(access_token: str, gateway_url: str):
     )
 
 
-def create_bedrock_agent(client: MCPClient):
-    """Create a Bedrock agent with tools from MCP client"""
+def create_bedrock_agent(client: MCPClient, actor_id: str, session_id: str):
+    """Create a Bedrock agent with tools from MCP client and AgentCore memory"""
     model = BedrockModel(model_id="us.anthropic.claude-3-7-sonnet-20250219-v1:0")
+    
+    memory_id = get_memory_resource_id()
+    memory_config = AgentCoreMemoryConfig(
+        memory_id=memory_id,
+        session_id=session_id,
+        actor_id=actor_id
+    )
+    region = get_aws_region()
+    session_manager = AgentCoreMemorySessionManager(
+        agentcore_memory_config=memory_config,
+        region_name=region
+    )
+    
     agent = Agent(
         model=model,
         system_prompt=get_system_prompt(),
-        tools=client.list_tools_sync()
+        tools=client.list_tools_sync(),
+        session_manager=session_manager
     )
     return agent
 
 
-async def invoke_cook_assistant(prompt: str, conversation_history: Optional[List[Dict[str, Any]]] = None) -> str:
-    """Invoke the Cook Assistant agent with a prompt and optional conversation history"""
+async def invoke_cook_assistant(prompt: str, actor_id: str, session_id: str) -> str:
+    """
+    Invoke the Cook Assistant agent with AgentCore memory integration.
+    
+    Args:
+        prompt: The user's message/query
+        actor_id: Unique identifier for the user (phone_number)
+        session_id: Session identifier for conversation grouping
+        
+    Returns:
+        Agent response as a string
+    """
     # Get access token
     access_token = await get_gateway_access_token()
     
@@ -97,18 +123,10 @@ async def invoke_cook_assistant(prompt: str, conversation_history: Optional[List
     # Create MCP client
     client = create_mcp_client(access_token, gateway_url)
     
-    # Invoke agent
+    # Invoke agent with memory
     with client:
-        agent = create_bedrock_agent(client)
+        agent = create_bedrock_agent(client, actor_id, session_id)
         
-        # Add conversation history to context if provided
-        if conversation_history:
-            context = "Previous conversation:\n"
-            for msg in conversation_history:
-                role = msg.get("role", "user")
-                content = msg.get("content", "")
-                context += f"{role}: {content}\n"
-            prompt = f"{context}\n\nCurrent question: {prompt}"
-        
+        # AgentCore handles conversation context automatically through session_manager
         response = agent(prompt)
         return str(response)

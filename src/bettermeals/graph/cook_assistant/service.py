@@ -1,5 +1,6 @@
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any
 import logging
+from datetime import datetime
 from ...database.database import get_db
 from .bedrock_client import invoke_cook_assistant
 
@@ -28,7 +29,7 @@ class CookAssistantService:
             return False
 
     async def process_cook_message(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Process cook assistant message and return appropriate response"""
+        """Process cook assistant message with AgentCore memory integration"""
         try:
             phone_number = payload.get("phone_number")
             text = payload.get("text", "").strip()
@@ -38,20 +39,20 @@ class CookAssistantService:
             
             logger.info(f"Processing cook message from {phone_number}: {text}")
             
-            # Save user message
+            # Save user message to Firebase for audit/compliance
             self._save_message(phone_number, "user", text)
             
-            # Get conversation history
-            conversation_history = self._get_conversation_history(phone_number)
+            # Generate session ID (phone_number + date for daily grouping)
+            session_id = self._get_or_create_session_id(phone_number)
             
-            # Invoke bedrock agent
+            # Invoke bedrock agent with AgentCore memory
             try:
-                response_text = await invoke_cook_assistant(text, conversation_history)
+                response_text = await invoke_cook_assistant(text, phone_number, session_id)
             except Exception as e:
                 logger.error(f"Error invoking bedrock agent: {str(e)}")
                 response_text = "I'm sorry, I encountered an error. Please try again."
             
-            # Save bot response
+            # Save bot response to Firebase for audit/compliance
             self._save_message(phone_number, "bot", response_text)
             
             return {"reply": response_text}
@@ -60,23 +61,11 @@ class CookAssistantService:
             logger.error(f"Error processing cook message: {str(e)}")
             return {"reply": "I'm sorry, I encountered an error. Please try again."}
 
-    def _get_conversation_history(self, phone_number: str, limit: int = 10) -> List[Dict[str, Any]]:
-        """Get conversation history for context"""
-        try:
-            messages = self.db.get_cook_messages(phone_number, limit)
-            
-            # Format as conversation history (exclude the current message being processed)
-            history = []
-            for msg in messages[:-1]:  # Exclude last message (current user message)
-                role = msg.get("role", "user")
-                content = msg.get("content", "")
-                if content:  # Only add non-empty messages
-                    history.append({"role": role, "content": content})
-            
-            return history
-        except Exception as e:
-            logger.error(f"Error getting conversation history: {str(e)}")
-            return []
+    def _get_or_create_session_id(self, phone_number: str) -> str:
+        """Generate session ID for AgentCore memory (daily grouping)"""
+        # Use phone_number + date as session ID
+        date_str = datetime.now().strftime("%Y%m%d")
+        return f"{phone_number}_{date_str}"
 
     def _save_message(self, phone_number: str, role: str, content: str):
         """Save a message to the database"""
