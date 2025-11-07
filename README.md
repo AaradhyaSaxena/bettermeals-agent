@@ -30,16 +30,21 @@ Households need a reliable way to go from personal health context (labs, prefere
 ## 2. System Components
 
 - **WhatsApp (Meta Cloud API)** → primary inbound/outbound channel for users and cooks.  
-- **n8n (Integration Layer)** → receives webhooks, deduplicates, maps phone → `thread_id`, forwards to orchestrator.  
-- **LangGraph Orchestrator** → hosts the Supervisor + specialized agents, manages state, edges, streaming, and interrupts.  
+- **n8n (Integration Layer)** → receives webhooks, deduplicates, maps phone → `thread_id`, routes to appropriate system.  
+- **LangGraph Orchestrator** → hosts the Supervisor + specialized agents for structured user workflows, manages state, edges, streaming, and interrupts.  
+- **AWS Bedrock/MCP (AgentCore)** → powers the Cook Assistant with Claude 3.7 Sonnet, semantic memory, and MCP tool discovery for open-ended cook conversations.  
 - **BetterMeals API** → source of truth for meal planning, scoring, onboarding, and orders.
 - **Tooling Standard (MCP-style descriptors)** → all HTTP tools (`onboarding.*`, `meals.*`, `orders.*`) are described with machine-readable schemas so agents can discover, validate, and audit every call (capabilities scoped per agent).
 
+**Dual Architecture Pattern:**
+- **Structured workflows** (users) → LangGraph Supervisor orchestrates deterministic, checkpointed flows
+- **Open-ended conversations** (cooks) → Bedrock/MCP AgentCore provides semantic memory and tool discovery for natural Q&A
+
 
 **Evaluation at a Glance**
-- **Technical Excellence:** multi-agent orchestration, clean boundaries, typed tools, durability, tests.
-- **Real-World Impact:** weekly planning → cart → checkout, human approvals, cook handoffs.
-- **Innovation:** API-first “thin agents”, multi-modal intake (labs images, optional voice), resumable graph.
+- **Technical Excellence:** dual-architecture design (LangGraph + Bedrock/MCP), multi-agent orchestration, semantic memory, clean boundaries, typed tools, durability, tests.
+- **Real-World Impact:** weekly planning → cart → checkout, human approvals, cook handoffs with natural conversation.
+- **Innovation:** API-first "thin agents", dual-system routing, AgentCore semantic memory, MCP tool discovery, multi-modal intake (labs images, optional voice), resumable graph.
 
 
 ---
@@ -49,12 +54,15 @@ Households need a reliable way to go from personal health context (labs, prefere
 ### Message-Passing State Machine
 LangGraph runs in discrete super-steps. Each **Node** (agent) reads state, performs work, and emits updates to activate the next node(s). A **Supervisor** decides which specialist acts next.
 
-### Single Entry, Single Brain
-All WhatsApp messages enter via `START → supervisor`. The Supervisor:
-- Interprets intent  
-- Delegates to exactly one specialized agent  
-- Receives control back  
-- Decides to continue, ask, or finish
+### Single Entry, Smart Routing
+All WhatsApp messages enter via the webhook layer, which performs **intelligent routing**:
+- **Cook detection** → routes to Bedrock/MCP Cook Assistant (bypasses LangGraph)
+- **User messages** → routes to LangGraph Supervisor
+- The Supervisor:
+  - Interprets intent  
+  - Delegates to exactly one specialized agent  
+  - Receives control back  
+  - Decides to continue, ask, or finish
 
 ### Durable by Design
 After each step, a **checkpoint** persists state + “what’s next”. Human approvals are **interrupts** that suspend execution; a later resume picks up exactly where it left off.
@@ -63,6 +71,8 @@ After each step, a **checkpoint** persists state + “what’s next”. Human ap
 
 ## 4. Agents
 
+### LangGraph Agents (Structured Workflows)
+
 | Agent | Responsibility |
 |-------|----------------|
 | **Supervisor** | Routes intent, delegates to workers, enforces policy, manages interrupts. |
@@ -70,19 +80,32 @@ After each step, a **checkpoint** persists state + “what’s next”. Human ap
 | **Meal Recommender** | Calls API to generate plans and writes plan IDs to state. |
 | **Meal Scorer** | Scores plans via API and explains trade-offs. |
 | **Order Manager** | Builds cart, handles substitutions, manages checkout & tracking. |
-| **Cook Update** | Translates cook WhatsApp messages into structured substitutions. |
 
-> All workers are thin API-driven wrappers — they summarize & shape responses but don’t invent facts.
+### Bedrock/MCP Agent (Open-Ended Conversations)
+
+| Agent | Responsibility |
+|-------|----------------|
+| **Cook Assistant** | Open-ended conversational agent powered by Claude 3.7 Sonnet via AWS Bedrock. Uses AgentCore semantic memory for context retention, MCP tool discovery for dynamic capability access, and handles cooking queries, meal details, recipe guidance, and kitchen advice. Operates independently from LangGraph with its own session management. |
+
+> **Architecture Philosophy:** LangGraph workers are thin API-driven wrappers — they summarize & shape responses but don't invent facts. The Cook Assistant leverages Bedrock's advanced reasoning for natural conversation while maintaining tool-grounded responses.
 
 ---
 
 ## 5. State & Memory
 
-### Short-Term (Per Thread)
+### Short-Term (Per Thread) - LangGraph
 Compact `BMState` stores household ID, role, intent, message history, API payloads/results, pending approvals, and artifact URLs (e.g., plan JSON, grocery CSV).
 
-### Long-Term (Cross Thread)
+### Long-Term (Cross Thread) - LangGraph
 Stores stable preferences (veg/non-veg, allergies), policies (no onion/garlic days), cook reliability, common substitutions.
+
+### Semantic Memory - Cook Assistant (AgentCore)
+**AgentCore semantic memory** provides persistent, actor-scoped context for cook conversations:
+- **Namespace isolation**: `/facts/{actorId}` ensures cook-specific context
+- **30-day retention**: Compliance-aligned event expiry
+- **Session grouping**: Daily sessions (`phone_number_YYYYMMDD`) for natural conversation boundaries
+- **Context injection**: Dynamic tool context (cook_id, household_id, meal_id, year_week) enhances tool calls without prompt bloat
+- **Memory resource**: Managed via SSM parameters, auto-provisioned on first use
 
 ---
 
@@ -264,24 +287,63 @@ sequenceDiagram
   Sup-->>WA: ETA + order summary (END)
 ```
 
-### B) Cook: “Out of spinach today”
+### B) Cook: "What are the ingredients for meal MEAL001?"
 
 ```mermaid
 sequenceDiagram
   participant Cook
   participant WA as WhatsApp (n8n)
-  participant Sup as Supervisor
-  participant CK as Cook Update
+  participant Webhook as Webhook Router
+  participant CAS as CookAssistantService
+  participant Bedrock as AWS Bedrock/MCP
+  participant Memory as AgentCore Memory
+  participant Tools as MCP Tools
   participant API as api.bettermeals.in
 
-  Cook->>WA: "Out of spinach"
-  WA->>Sup: webhook {thread_id, text, sender_role:'cook'}
-  Sup->>CK: delegate
-  CK->>API: POST /orders/substitute {original:'spinach', chosen:'kale'}
-  API-->>CK: updated cart
-  CK-->>Sup: new prep instruction
-  Sup-->>WA: concise instruction back to cook (END)
+  Cook->>WA: "What are the ingredients for MEAL001?"
+  WA->>Webhook: webhook {phone_number, text}
+  Webhook->>CAS: is_cook(phone_number) → true
+  CAS->>CAS: Build context {cook_id, household_id, meal_id}
+  CAS->>Bedrock: invoke_cook_assistant(prompt, actor_id, session_id, context)
+  Bedrock->>Memory: Load semantic context for actor_id
+  Memory-->>Bedrock: Previous conversation context
+  Bedrock->>Tools: Discover available tools via MCP
+  Tools-->>Bedrock: Tool schemas (get_meal_details, etc.)
+  Bedrock->>Tools: Call get_meal_details(meal_id="MEAL001")
+  Tools->>API: POST /meals/details {meal_id}
+  API-->>Tools: Meal ingredients + prep instructions
+  Tools-->>Bedrock: Structured response
+  Bedrock->>Memory: Store conversation in semantic memory
+  Bedrock-->>CAS: Natural language response
+  CAS->>CAS: Save to Firebase (audit trail)
+  CAS-->>WA: Response with ingredients list
+  WA-->>Cook: "MEAL001 includes: chicken, spinach, rice..."
 ```
+
+---
+
+## 17.5. Dual Architecture Deep Dive
+
+### Why Two Systems?
+
+**LangGraph (Users):** Structured, deterministic workflows with explicit state machines, checkpoints, and human-in-the-loop interrupts. Perfect for multi-step processes requiring approvals and resumability.
+
+**Bedrock/MCP (Cooks):** Open-ended conversations requiring semantic memory, dynamic tool discovery, and natural language understanding. Cooks ask varied questions ("What can I substitute?", "How do I prep this?", "Show me this week's plan") that don't fit rigid workflows.
+
+### Technical Highlights
+
+**Cook Assistant Architecture:**
+- **MCP (Model Context Protocol)**: Dynamic tool discovery and invocation via HTTP gateway
+- **AgentCore Memory**: Semantic memory with actor-scoped namespaces, 30-day retention
+- **Context Injection**: Generic context builder (`_build_tool_context`) makes available values (cook_id, household_id, meal_id, year_week) to tools without prompt engineering
+- **Thread-safe Token Caching**: OAuth2 M2M flow with Cognito, cached access tokens
+- **SSM Parameter Management**: Infrastructure-as-code for gateway URLs, memory IDs, Cognito configs
+- **Firebase Audit Trail**: All cook conversations persisted for compliance
+
+**Separation of Concerns:**
+- Webhook layer performs routing (cook detection via Firebase lookup)
+- No cross-contamination: Cook Assistant doesn't touch LangGraph state, LangGraph doesn't handle cook conversations
+- Each system optimized for its use case: checkpointed workflows vs. conversational memory
 
 ---
 
@@ -332,11 +394,13 @@ Allows quick onboarding, natural conversation, and optional voice.
 | Area                 | Status         | Notes                    |
 | -------------------- | -------------- | ------------------------ |
 | Supervisor & Workers | Complete       | LangGraph orchestration  |
+| Cook Assistant       | Complete       | AWS Bedrock/MCP, AgentCore memory, MCP tool discovery |
 | Tooling Layer        | Complete       | Typed API wrappers       |
 | API Responses        | Complete       | Ready for live endpoints |
 | Multi-Modal (Vision) | Working        | Lab intake               |
 | Multi-Modal (Speech) | Working        | Demo transcription       |
 | Streaming            | Working        | Token-level              |
+| Semantic Memory      | Complete       | AgentCore integration with 30-day retention |
 | Testing              | In progress    | Postman + pytest         |
 
 ---
@@ -351,10 +415,13 @@ Allows quick onboarding, natural conversation, and optional voice.
 
 ## 23. Key Takeaways
 
-* **Fast, stateful, real-time** orchestration
-* **Durable & auditable** execution model
-* **Multi-modal & human-centered** UX
-* **Practical impact** for households & cooks
+* **Dual architecture** — LangGraph for structured workflows, Bedrock/MCP for open-ended conversations
+* **Fast, stateful, real-time** orchestration with checkpointed resumability
+* **Semantic memory** — AgentCore provides persistent context for cook conversations
+* **Durable & auditable** execution model with Firebase audit trails
+* **Multi-modal & human-centered** UX with voice, vision, and text
+* **Practical impact** for households & cooks with seamless integration
+* **Production-ready** — SSM-managed configs, thread-safe operations, compliance-aligned retention
 
 ---
 
