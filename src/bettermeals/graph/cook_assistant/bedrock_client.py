@@ -6,7 +6,10 @@ It handles authentication, MCP client setup, and agent invocation with AgentCore
 """
 
 import os
+import asyncio
 from pathlib import Path
+from typing import Optional
+import logging
 from bedrock_agentcore.identity.auth import requires_access_token
 from strands.tools.mcp import MCPClient
 from mcp.client.streamable_http import streamablehttp_client
@@ -17,6 +20,8 @@ from bedrock_agentcore.memory.integrations.strands.session_manager import AgentC
 from .utils import get_ssm_parameter, get_aws_region
 from .memory_config import get_memory_resource_id
 
+logger = logging.getLogger(__name__)
+
 # Set the path to .agentcore.json in this directory
 _config_dir = Path(__file__).parent
 _config_file = _config_dir / ".agentcore.json"
@@ -25,17 +30,27 @@ _config_file = _config_dir / ".agentcore.json"
 if "AGENTCORE_CONFIG_PATH" not in os.environ and _config_file.exists():
     os.environ["AGENTCORE_CONFIG_PATH"] = str(_config_file)
 
-gateway_access_token = None
+# Thread-safe token caching with lock
+_gateway_access_token: Optional[str] = None
+_token_lock = asyncio.Lock()
+
+# Cache SSM parameters (these rarely change)
+_gateway_url: Optional[str] = None
+_memory_id: Optional[str] = None
+_region: Optional[str] = None
+_tools_cache: Optional[list] = None
 
 
 @requires_access_token(
     provider_name=get_ssm_parameter("/app/cookassistant/agentcore/cognito_provider"),
-    scopes=[],  # Optional unless required
+    scopes=[],
     auth_flow="M2M",
 )
 async def _get_access_token_manually(*, access_token: str):
-    global gateway_access_token
-    gateway_access_token = access_token
+    """Get access token - called by decorator"""
+    global _gateway_access_token
+    logger.info(f"Received access token, length: {len(access_token) if access_token else 0}")
+    _gateway_access_token = access_token
     return access_token
 
 
@@ -60,11 +75,52 @@ You will ALWAYS follow the below guidelines when assisting users:
 
 
 async def get_gateway_access_token() -> str:
-    """Get AWS gateway access token"""
-    global gateway_access_token
-    if gateway_access_token is None:
-        await _get_access_token_manually(access_token="")
-    return gateway_access_token
+    """Get AWS gateway access token (thread-safe)"""
+    global _gateway_access_token
+    async with _token_lock:
+        if _gateway_access_token is None:
+            logger.info("Token is None, fetching new token...")
+            await _get_access_token_manually(access_token="")
+            logger.info(f"Token fetched, length: {len(_gateway_access_token) if _gateway_access_token else 0}")
+        else:
+            logger.debug("Using cached token")
+        return _gateway_access_token
+
+
+def _get_gateway_url() -> str:
+    """Get gateway URL from SSM (cached)"""
+    global _gateway_url
+    if _gateway_url is None:
+        _gateway_url = get_ssm_parameter("/app/cookassistant/agentcore/gateway_url")
+    return _gateway_url
+
+
+def _get_memory_id() -> str:
+    """Get memory resource ID (cached)"""
+    global _memory_id
+    if _memory_id is None:
+        _memory_id = get_memory_resource_id()
+    return _memory_id
+
+
+def _get_region() -> str:
+    """Get AWS region (cached)"""
+    global _region
+    if _region is None:
+        _region = get_aws_region()
+    return _region
+
+
+def _get_tools_cached(client: MCPClient) -> list:
+    """Get tools from MCP client (cached)"""
+    global _tools_cache
+    if _tools_cache is None:
+        logger.info("Fetching tools from MCP client...")
+        _tools_cache = client.list_tools_sync()
+        logger.info(f"Cached {len(_tools_cache)} tools")
+    else:
+        logger.debug(f"Using cached tools ({len(_tools_cache)} tools)")
+    return _tools_cache
 
 
 def create_mcp_client(access_token: str, gateway_url: str):
@@ -81,22 +137,20 @@ def create_bedrock_agent(client: MCPClient, actor_id: str, session_id: str):
     """Create a Bedrock agent with tools from MCP client and AgentCore memory"""
     model = BedrockModel(model_id="us.anthropic.claude-3-7-sonnet-20250219-v1:0")
     
-    memory_id = get_memory_resource_id()
     memory_config = AgentCoreMemoryConfig(
-        memory_id=memory_id,
+        memory_id=_get_memory_id(),
         session_id=session_id,
         actor_id=actor_id
     )
-    region = get_aws_region()
     session_manager = AgentCoreMemorySessionManager(
         agentcore_memory_config=memory_config,
-        region_name=region
+        region_name=_get_region()
     )
     
     agent = Agent(
         model=model,
         system_prompt=get_system_prompt(),
-        tools=client.list_tools_sync(),
+        tools=_get_tools_cached(client),
         session_manager=session_manager
     )
     return agent
@@ -113,20 +167,29 @@ async def invoke_cook_assistant(prompt: str, actor_id: str, session_id: str) -> 
         
     Returns:
         Agent response as a string
-    """
-    # Get access token
-    access_token = await get_gateway_access_token()
-    
-    # Get gateway URL from SSM
-    gateway_url = get_ssm_parameter("/app/cookassistant/agentcore/gateway_url")
-    
-    # Create MCP client
-    client = create_mcp_client(access_token, gateway_url)
-    
-    # Invoke agent with memory
-    with client:
-        agent = create_bedrock_agent(client, actor_id, session_id)
         
-        # AgentCore handles conversation context automatically through session_manager
-        response = agent(prompt)
-        return str(response)
+    Raises:
+        Exception: If agent invocation fails
+    """
+    try:
+        # Get access token (cached, thread-safe)
+        access_token = await get_gateway_access_token()
+        
+        # Get gateway URL (cached)
+        gateway_url = _get_gateway_url()
+        
+        # Create MCP client
+        client = create_mcp_client(access_token, gateway_url)
+        
+        # Invoke agent with memory
+        with client:
+            agent = create_bedrock_agent(client, actor_id, session_id)
+            
+            # AgentCore handles conversation context automatically through session_manager
+            response = agent(prompt)
+            return str(response)
+            
+    except Exception as e:
+        # Log and re-raise for caller to handle
+        logger.error(f"Error invoking cook assistant: {str(e)}", exc_info=True)
+        raise
