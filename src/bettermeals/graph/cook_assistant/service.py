@@ -45,9 +45,18 @@ class CookAssistantService:
             # Generate session ID (phone_number + date for daily grouping)
             session_id = self._get_or_create_session_id(phone_number)
             
-            # Invoke bedrock agent with AgentCore memory
+            # Build context dictionary with available values for tool calls
+            # This is generic and extensible - add new keys as new tools/parameters are added
+            context = self._build_tool_context(phone_number, payload)
+            
+            # Invoke bedrock agent with AgentCore memory and context
             try:
-                response_text = await invoke_cook_assistant(text, phone_number, session_id)
+                response_text = await invoke_cook_assistant(
+                    prompt=text,
+                    actor_id=phone_number,
+                    session_id=session_id,
+                    context=context
+                )
             except Exception as e:
                 logger.error(f"Error invoking bedrock agent: {str(e)}")
                 response_text = "I'm sorry, I encountered an error. Please try again."
@@ -60,6 +69,50 @@ class CookAssistantService:
         except Exception as e:
             logger.error(f"Error processing cook message: {str(e)}")
             return {"reply": "I'm sorry, I encountered an error. Please try again."}
+    
+    def _build_tool_context(self, phone_number: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Build a generic context dictionary with available values for tool calls.
+        
+        This method extracts context values from the database and payload.
+        It's designed to be easily extensible - add new key-value pairs as needed
+        when new tools or parameters are introduced.
+        
+        Args:
+            phone_number: Cook's phone number
+            payload: Request payload that may contain context values
+            
+        Returns:
+            Dictionary of context key-value pairs (keys should match tool parameter names)
+        """
+        context = {}
+        
+        # Extract cook_id from database
+        cook_data = self.db.find_cook_by_phone(phone_number)
+        if cook_data:
+            cook_id = cook_data.get("cook_id")
+            if cook_id:
+                context["cook_id"] = cook_id
+            
+            # Extract household_id from cook data if available
+            household_id = cook_data.get("household_id")
+            if household_id:
+                context["household_id"] = household_id
+        
+        # Extract household_id from payload (takes precedence)
+        if payload.get("household_id"):
+            context["household_id"] = payload.get("household_id")
+        
+        # Extract meal_id from payload if present
+        if payload.get("meal_id"):
+            context["meal_id"] = payload.get("meal_id")
+        
+        # Calculate year_week in format "YYYY-Www" (e.g., "2024-W01")
+        now = datetime.now()
+        week_num = now.strftime("%W")
+        context["year_week"] = f"{now.year}-{week_num}"
+        
+        return context
 
     def _get_or_create_session_id(self, phone_number: str) -> str:
         """Generate session ID for AgentCore memory (daily grouping)"""

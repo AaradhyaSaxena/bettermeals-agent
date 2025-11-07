@@ -8,7 +8,7 @@ It handles authentication, MCP client setup, and agent invocation with AgentCore
 import os
 import asyncio
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any
 import logging
 from bedrock_agentcore.identity.auth import requires_access_token
 from strands.tools.mcp import MCPClient
@@ -114,12 +114,11 @@ def _get_region() -> str:
 def _get_tools_cached(client: MCPClient) -> list:
     """Get tools from MCP client (cached)"""
     global _tools_cache
-    if _tools_cache is None:
-        logger.info("Fetching tools from MCP client...")
-        _tools_cache = client.list_tools_sync()
-        logger.info(f"Cached {len(_tools_cache)} tools")
-    else:
-        logger.debug(f"Using cached tools ({len(_tools_cache)} tools)")
+    # Always fetch fresh tools to ensure they're bound to the active client session
+    # Tools need the client session to be active when making async calls
+    logger.info("Fetching tools from MCP client...")
+    _tools_cache = client.list_tools_sync()
+    logger.info(f"Fetched {len(_tools_cache)} tools")
     return _tools_cache
 
 
@@ -136,6 +135,7 @@ def create_mcp_client(access_token: str, gateway_url: str):
 def create_bedrock_agent(client: MCPClient, actor_id: str, session_id: str):
     """Create a Bedrock agent with tools from MCP client and AgentCore memory"""
     model = BedrockModel(model_id="us.anthropic.claude-3-7-sonnet-20250219-v1:0")
+    # fast_model = BedrockModel(model_id="us.anthropic.claude-3-5-haiku-20241022-v2:0")
     
     memory_config = AgentCoreMemoryConfig(
         memory_id=_get_memory_id(),
@@ -156,7 +156,51 @@ def create_bedrock_agent(client: MCPClient, actor_id: str, session_id: str):
     return agent
 
 
-async def invoke_cook_assistant(prompt: str, actor_id: str, session_id: str) -> str:
+def _enhance_prompt_with_context(prompt: str, context: Dict[str, Any]) -> str:
+    """
+    Enhance user prompt with available context values for tool calls.
+    
+    This is a generic function that works with any context dictionary,
+    making it easily extensible when new tools or parameters are added.
+    
+    Args:
+        prompt: Original user prompt
+        context: Dictionary of context key-value pairs available for tool calls
+        
+    Returns:
+        Enhanced prompt with context information, or original prompt if context is empty
+    """
+    if not context:
+        return prompt
+    
+    # Filter out None values
+    available_context = {k: v for k, v in context.items() if v is not None}
+    
+    if not available_context:
+        return prompt
+    
+    # Build context section dynamically
+    context_lines = [f"- {key}: {value}" for key, value in sorted(available_context.items())]
+    context_section = "\n".join(context_lines)
+    
+    enhanced = f"""{prompt}
+
+<available_context>
+The following context values are available for use with tools:
+{context_section}
+
+When calling tools, use these values when the tool parameters match the context keys.
+</available_context>"""
+    
+    return enhanced
+
+
+async def invoke_cook_assistant(
+    prompt: str, 
+    actor_id: str, 
+    session_id: str,
+    context: Optional[Dict[str, Any]] = None
+) -> str:
     """
     Invoke the Cook Assistant agent with AgentCore memory integration.
     
@@ -164,6 +208,9 @@ async def invoke_cook_assistant(prompt: str, actor_id: str, session_id: str) -> 
         prompt: The user's message/query
         actor_id: Unique identifier for the user (phone_number)
         session_id: Session identifier for conversation grouping
+        context: Optional dictionary of context values to make available for tool calls.
+                 Keys should match tool parameter names (e.g., {"cook_id": "123", "household_id": "456"}).
+                 This makes the function extensible - add new keys as new tools/parameters are added.
         
     Returns:
         Agent response as a string
@@ -181,12 +228,21 @@ async def invoke_cook_assistant(prompt: str, actor_id: str, session_id: str) -> 
         # Create MCP client
         client = create_mcp_client(access_token, gateway_url)
         
+        # Enhance prompt with available context for tool calls
+        enhanced_prompt = _enhance_prompt_with_context(prompt, context or {})
+        
         # Invoke agent with memory
+        # The MCP client context manager must stay open for the entire agent execution
+        # including async tool calls. The agent() call should block until all operations complete.
         with client:
             agent = create_bedrock_agent(client, actor_id, session_id)
             
             # AgentCore handles conversation context automatically through session_manager
-            response = agent(prompt)
+            # Call agent synchronously - it should handle async operations internally
+            # and block until completion before returning
+            response = agent(enhanced_prompt)
+            
+            # Convert response to string
             return str(response)
             
     except Exception as e:
