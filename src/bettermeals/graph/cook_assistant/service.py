@@ -86,11 +86,12 @@ class CookAssistantService:
             Dictionary of context key-value pairs (keys should match tool parameter names)
         """
         context = {}
+        context["phone_number"] = phone_number
         
         # Extract cook_id from database
         cook_data = self.db.find_cook_by_phone(phone_number)
         if cook_data:
-            cook_id = cook_data.get("cook_id")
+            cook_id = cook_data.get("id")
             if cook_id:
                 context["cook_id"] = cook_id
             
