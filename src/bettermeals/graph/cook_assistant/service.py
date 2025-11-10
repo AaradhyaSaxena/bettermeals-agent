@@ -1,5 +1,6 @@
 from typing import Dict, Any
 import logging
+import hashlib
 from datetime import datetime
 from ...database.database import get_db
 from .bedrock import invoke_cook_assistant
@@ -43,6 +44,7 @@ class CookAssistantService:
             self._save_message(phone_number, "user", text)
             
             # Generate session ID (phone_number + date for daily grouping)
+            # Ensures >= 33 characters for Bedrock Runtime API compatibility
             session_id = self._get_or_create_session_id(phone_number)
             
             # Build context dictionary with available values for tool calls
@@ -116,10 +118,29 @@ class CookAssistantService:
         return context
 
     def _get_or_create_session_id(self, phone_number: str) -> str:
-        """Generate session ID for AgentCore memory (daily grouping)"""
-        # Use phone_number + date as session ID
+        """
+        Generate session ID for AgentCore memory (daily grouping).
+        
+        Bedrock Runtime API requires runtimeSessionId to be at least 33 characters.
+        This method ensures the session ID meets that requirement while maintaining
+        determinism (same phone_number + date = same session_id).
+        """
         date_str = datetime.now().strftime("%Y%m%d")
-        return f"{phone_number}_{date_str}"
+        base_id = f"{phone_number}_{date_str}"
+        
+        # If already long enough, return as-is
+        if len(base_id) >= 33:
+            return base_id
+        
+        # Calculate padding needed: 33 - len(base_id) - 1 (for underscore)
+        padding_needed = max(0, 33 - len(base_id) - 1)
+        
+        # Generate deterministic hash suffix (always use at least 16 chars for uniqueness)
+        hash_digest = hashlib.sha256(base_id.encode()).hexdigest()
+        hash_length = max(16, padding_needed)
+        hash_suffix = hash_digest[:hash_length]
+        
+        return f"{base_id}_{hash_suffix}"
 
     def _save_message(self, phone_number: str, role: str, content: str):
         """Save a message to the database"""

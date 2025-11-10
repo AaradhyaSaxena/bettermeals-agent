@@ -15,7 +15,7 @@ from ..utils import get_ssm_parameter
 logger = logging.getLogger(__name__)
 
 # Default implementation
-DEFAULT_IMPLEMENTATION = "mcp"
+DEFAULT_IMPLEMENTATION = "runtime"
 
 
 def get_implementation() -> str:
