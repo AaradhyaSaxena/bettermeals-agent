@@ -9,7 +9,6 @@ from .token_manager import TokenManager
 from .config_manager import ConfigManager
 from .mcp_client_factory import MCPClientFactory
 from .agent_factory import AgentFactory
-from .prompt_enhancer import enhance_prompt_with_context
 
 __all__ = [
     "MCPAgentClient",
@@ -18,6 +17,5 @@ __all__ = [
     "ConfigManager",
     "MCPClientFactory",
     "AgentFactory",
-    "enhance_prompt_with_context",
 ]
 

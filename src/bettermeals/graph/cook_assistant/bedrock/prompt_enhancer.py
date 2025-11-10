@@ -2,6 +2,7 @@
 Prompt Enhancement Utilities
 
 Functions for enhancing user prompts with context information for tool calls.
+Shared utility for both MCP and Runtime implementations.
 """
 
 from typing import Dict, Any

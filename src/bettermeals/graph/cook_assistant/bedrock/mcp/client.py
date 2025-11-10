@@ -12,7 +12,7 @@ from .token_manager import TokenManager
 from .config_manager import ConfigManager
 from .mcp_client_factory import MCPClientFactory
 from .agent_factory import AgentFactory
-from .prompt_enhancer import enhance_prompt_with_context
+from ..prompt_enhancer import enhance_prompt_with_context
 
 logger = logging.getLogger(__name__)
 
