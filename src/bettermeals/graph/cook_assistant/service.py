@@ -2,7 +2,7 @@ from typing import Dict, Any
 import logging
 from datetime import datetime
 from ...database.database import get_db
-from .bedrock.mcp.client import invoke_cook_assistant
+from .bedrock import invoke_cook_assistant
 
 logger = logging.getLogger(__name__)
 
