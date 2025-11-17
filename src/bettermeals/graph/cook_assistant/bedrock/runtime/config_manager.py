@@ -10,7 +10,7 @@ import urllib.parse
 from pathlib import Path
 from typing import Optional
 import logging
-from ...utils import get_ssm_parameter, get_aws_region, read_config
+from ...utils import get_ssm_parameter, put_ssm_parameter, get_aws_region, read_config
 
 logger = logging.getLogger(__name__)
 
@@ -33,13 +33,18 @@ class RuntimeConfigManager:
     
     def get_agent_arn(self) -> str:
         """
-        Get agent ARN from config file or SSM parameter.
+        Get agent ARN from config file, SSM parameter, or .env file.
+        
+        Tries in order:
+        1. Config file (if agent_name provided)
+        2. SSM parameter
+        3. .env file (automatically syncs to SSM if found)
         
         Returns:
             Agent ARN string
             
         Raises:
-            ValueError: If agent ARN cannot be found
+            ValueError: If agent ARN cannot be found from any source
         """
         if self._agent_arn is None:
             # Try config file first (if agent_name is provided)
@@ -62,11 +67,18 @@ class RuntimeConfigManager:
                     self._agent_arn = get_ssm_parameter("/app/cookassistant/runtime/agent_arn")
                     logger.info(f"Found agent ARN from SSM parameter")
                 except Exception as e:
-                    raise ValueError(
-                        f"Could not find agent ARN. "
-                        f"Either provide agent_name for config file lookup or set SSM parameter "
-                        f"/app/cookassistant/runtime/agent_arn. Error: {e}"
-                    )
+                    # Try to sync from .env as last resort
+                    try:
+                        logger.info("SSM parameter not found, attempting to sync from .env...")
+                        self._agent_arn = RuntimeConfigManager.sync_agent_arn_from_env()
+                        logger.info("Successfully synced agent_arn from .env to SSM")
+                    except Exception as sync_error:
+                        raise ValueError(
+                            f"Could not find agent ARN. "
+                            f"Either provide agent_name for config file lookup, set SSM parameter "
+                            f"/app/cookassistant/runtime/agent_arn, or ensure .env contains agent_arn. "
+                            f"SSM error: {e}, Sync error: {sync_error}"
+                        )
         
         return self._agent_arn
     
@@ -107,4 +119,66 @@ class RuntimeConfigManager:
         if self._region is None:
             self._region = get_aws_region()
         return self._region
+    
+    @classmethod
+    def sync_agent_arn_from_env(cls, env_file_path: Optional[str] = None) -> str:
+        """
+        Sync agent ARN from .env file to SSM Parameter Store.
+        
+        Args:
+            env_file_path: Path to .env file. If None, looks for .env in project root.
+        
+        Returns:
+            Agent ARN string that was stored in SSM
+        
+        Raises:
+            FileNotFoundError: If .env file not found
+            ValueError: If agent_arn not found in .env file
+        """
+        if env_file_path is None:
+            # Look for .env in cook_assistant directory (3 levels up from this file)
+            # From bedrock/runtime/config_manager.py -> bedrock -> cook_assistant
+            cookassistant_root = Path(__file__).parent.parent.parent
+            env_file_path = cookassistant_root / ".env"
+        
+        if not os.path.exists(env_file_path):
+            raise FileNotFoundError(f".env file not found at {env_file_path}")
+        
+        # Read .env file
+        env_vars = {}
+        with open(env_file_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                # Skip empty lines and comments
+                if not line or line.startswith('#'):
+                    continue
+                # Parse KEY=VALUE format
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    key = key.strip()
+                    value = value.strip().strip('"').strip("'")  # Remove quotes if present
+                    env_vars[key] = value
+        
+        # Look for agent_arn (case-insensitive, check common variations)
+        agent_arn = None
+        for key, value in env_vars.items():
+            key_upper = key.upper()
+            if key_upper in ['AGENT_ARN', 'COOK_ASSISTANT_AGENT_ARN', 'BEDROCK_AGENT_ARN', 'RUNTIME_AGENT_ARN']:
+                agent_arn = value
+                logger.info(f"Found agent_arn in .env as {key}")
+                break
+        
+        if not agent_arn:
+            raise ValueError(
+                f"agent_arn not found in .env file. "
+                f"Expected one of: AGENT_ARN, COOK_ASSISTANT_AGENT_ARN, BEDROCK_AGENT_ARN, RUNTIME_AGENT_ARN. "
+                f"Available keys: {list(env_vars.keys())}"
+            )
+        
+        # Store in SSM
+        ssm_param_name = "/app/cookassistant/runtime/agent_arn"
+        put_ssm_parameter(ssm_param_name, agent_arn)
+        logger.info(f"Synced agent_arn from .env to SSM: {ssm_param_name}")
+        
+        return agent_arn
 

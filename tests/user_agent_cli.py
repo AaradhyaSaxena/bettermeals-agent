@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 """
-CLI tool to interact with the Cook Assistant MCP Agent
+CLI tool to interact with the User Agent MCP Agent
 
 Usage:
-    python tests/cook_assistant_cli.py --prompt "What meal can I make with chicken?"
-    python tests/cook_assistant_cli.py --prompt "Show my profile" --context '{"cook_id": "123"}'
+    python tests/user_agent_cli.py --prompt "Show my profile"
+    python tests/user_agent_cli.py --prompt "What meals do I have?" --context '{"user_id": "123", "household_id": "456"}'
 """
 
 import asyncio
@@ -17,7 +17,7 @@ from datetime import datetime
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-from bettermeals.graph.cook_assistant.bedrock import invoke_cook_assistant
+from bettermeals.graph.user_agent.bedrock import invoke_user_agent
 
 
 def ensure_session_id_length(session_id: str, actor_id: str) -> str:
@@ -38,14 +38,14 @@ def ensure_session_id_length(session_id: str, actor_id: str) -> str:
 
 
 @click.command()
-@click.option("--prompt", "-p", required=True, help="Prompt to send to the Cook Assistant agent")
+@click.option("--prompt", "-p", required=True, help="Prompt to send to the User Agent agent")
 @click.option("--actor-id", "-a", default="test_actor", help="Actor ID (phone number) for the agent")
 @click.option("--session-id", "-s", default=None, help="Session ID for the agent (defaults to test_session_YYYYMMDD)")
-@click.option("--context", "-c", default=None, help="JSON string of context values (e.g., '{\"cook_id\": \"123\", \"household_id\": \"456\"}')")
+@click.option("--context", "-c", default=None, help="JSON string of context values (e.g., '{\"user_id\": \"123\", \"household_id\": \"456\"}')")
 @click.option("--implementation", "-i", default=None, help="Implementation: 'mcp' or 'runtime' (defaults to env/SSM config)")
 @click.option("--agent-name", "-n", default=None, help="Agent name for Runtime config file lookup")
 def main(prompt: str, actor_id: str, session_id: str, context: str, implementation: str, agent_name: str):
-    """CLI tool to interact with the Cook Assistant Agent using a prompt."""
+    """CLI tool to interact with the User Agent Agent using a prompt."""
     try:
         # Parse context if provided
         context_dict = None
@@ -64,7 +64,7 @@ def main(prompt: str, actor_id: str, session_id: str, context: str, implementati
         # Ensure session_id meets Bedrock Runtime minimum length (33 chars)
         session_id = ensure_session_id_length(session_id, actor_id)
         
-        response = asyncio.run(invoke_cook_assistant(
+        response = asyncio.run(invoke_user_agent(
             prompt, 
             actor_id, 
             session_id, 
@@ -74,7 +74,7 @@ def main(prompt: str, actor_id: str, session_id: str, context: str, implementati
         ))
         print(str(response))
     except Exception as e:
-        print(f"❌ Error invoking Cook Assistant: {str(e)}")
+        print(f"❌ Error invoking User Agent: {str(e)}")
         sys.exit(1)
 
 
@@ -82,7 +82,7 @@ if __name__ == "__main__":
     main()
 
 
-# python3 tests/cook_assistant_cli.py \
-#   --agent-name cookassistant_v1 \
+# python3 tests/user_agent_cli.py \
 #   --implementation runtime \
+#   --agent-name cookassistant_v1 \
 #   --prompt "What are the ingredients for meal yt_F_S9g8V3h_8#dinner?"
