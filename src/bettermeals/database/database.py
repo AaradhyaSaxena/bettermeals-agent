@@ -23,26 +23,64 @@ class Database:
             logger.error(f"Failed to initialize database connection: {str(e)}")
             raise
 
+    def _normalize_phone_number(self, phone_number: str) -> str:
+        """Normalize phone number to format: 919639293454 (no + prefix, with 91 country code)
+        
+        Handles:
+        - 9639293454 -> 919639293454 (adds 91 prefix)
+        - +919639293454 -> 919639293454 (removes + prefix)
+        - 919639293454 -> 919639293454 (already correct)
+        """
+        if not phone_number:
+            return phone_number
+        
+        # Remove + prefix if present
+        normalized = phone_number.lstrip('+')
+        
+        # Remove any non-digit characters (spaces, dashes, etc.)
+        normalized = ''.join(filter(str.isdigit, normalized))
+        
+        # Ensure it starts with 91
+        if not normalized.startswith('91'):
+            normalized = f"91{normalized}"
+        
+        # Validate: should be exactly 12 digits (91 + 10 digits)
+        if len(normalized) != 12 or not normalized.isdigit():
+            logger.warning(f"Invalid phone number format after normalization: {phone_number} -> {normalized} (expected 12 digits)")
+            # Still return normalized value, but log warning
+        
+        return normalized
+
     #######################################
     ######## HOUSEHOLD ##########
     #######################################
 
     def find_user_by_phone(self, phone_number: str):
-        """Find user by WhatsApp phone number"""
+        """Find user by WhatsApp phone number
+        
+        Normalizes phone number to format: 919639293454 (no + prefix, with 91 country code)
+        """
         try:
-            logger.debug(f"Searching for user with phone number: {phone_number}")
+            if not phone_number:
+                return None
+            
+            # Normalize phone number to expected format
+            normalized_phone = self._normalize_phone_number(phone_number)
+            logger.debug(f"Normalized phone number: {phone_number} -> {normalized_phone}")
+            
+            logger.debug(f"Searching for user with phone number: {normalized_phone}")
             users_ref = self.db.collection("user")
-            q = users_ref.where("phone_number", "==", phone_number).limit(1)
+            q = users_ref.where("phone_number", "==", normalized_phone).limit(1)
             docs = list(q.stream())
             
             if not docs:
-                logger.debug(f"No user found with phone number: {phone_number}")
+                logger.debug(f"No user found with phone number: {normalized_phone}")
                 return None
                 
             doc = docs[0]
             data = doc.to_dict()
             data["id"] = doc.id
-            logger.debug(f"Found user: {doc.id} for phone number: {phone_number}")
+            logger.debug(f"Found user: {doc.id} for phone number: {normalized_phone}")
             return data
             
         except Exception as e:
@@ -72,14 +110,16 @@ class Database:
     def save_user_message(self, phone_number: str, message_data: Dict[str, Any]) -> bool:
         """Save user agent message to database"""
         try:
-            logger.debug(f"Saving user agent message for phone: {phone_number}")
+            # Normalize phone number to expected format
+            normalized_phone = self._normalize_phone_number(phone_number)
+            logger.debug(f"Saving user agent message for phone: {normalized_phone}")
             messages_ref = self.db.collection("user_agent_messages")
             
-            message_data["phone_number"] = phone_number
+            message_data["phone_number"] = normalized_phone
             message_data["timestamp"] = datetime.now()
             
             messages_ref.add(message_data)
-            logger.debug(f"Successfully saved user agent message for phone: {phone_number}")
+            logger.debug(f"Successfully saved user agent message for phone: {normalized_phone}")
             return True
         except Exception as e:
             logger.error(f"Error saving user agent message for phone {phone_number}: {str(e)}")
@@ -108,19 +148,21 @@ class Database:
     def save_onboarding_message(self, phone_number: str, message_data: Dict[str, Any]) -> bool:
         """Save individual onboarding message to database"""
         try:
-            logger.debug(f"Saving onboarding message for phone: {phone_number}")
+            # Normalize phone number to expected format
+            normalized_phone = self._normalize_phone_number(phone_number)
+            logger.debug(f"Saving onboarding message for phone: {normalized_phone}")
             
             # Create or get onboarding_messages collection
             messages_ref = self.db.collection("onboarding_messages")
             
             # Add timestamp and phone number to message data
-            message_data["phone_number"] = phone_number
+            message_data["phone_number"] = normalized_phone
             message_data["timestamp"] = datetime.now()
             
             # Add the message
             messages_ref.add(message_data)
             
-            logger.debug(f"Successfully saved onboarding message for phone: {phone_number}")
+            logger.debug(f"Successfully saved onboarding message for phone: {normalized_phone}")
             return True
             
         except Exception as e:
@@ -130,11 +172,13 @@ class Database:
     def get_onboarding_messages(self, phone_number: str) -> List[Dict[str, Any]]:
         """Get all onboarding messages for a phone number"""
         try:
-            logger.debug(f"Getting onboarding messages for phone: {phone_number}")
+            # Normalize phone number to expected format
+            normalized_phone = self._normalize_phone_number(phone_number)
+            logger.debug(f"Getting onboarding messages for phone: {normalized_phone}")
             
             messages_ref = self.db.collection("onboarding_messages")
             # Use only where clause to avoid index requirement, then sort in Python
-            q = messages_ref.where("phone_number", "==", phone_number)
+            q = messages_ref.where("phone_number", "==", normalized_phone)
             docs = list(q.stream())
             
             messages = []
@@ -146,7 +190,7 @@ class Database:
             # Sort by timestamp in Python to avoid Firestore index requirement
             messages.sort(key=lambda x: x.get("timestamp", datetime.min))
             
-            logger.debug(f"Retrieved {len(messages)} onboarding messages for phone: {phone_number}")
+            logger.debug(f"Retrieved {len(messages)} onboarding messages for phone: {normalized_phone}")
             return messages
             
         except Exception as e:
@@ -188,14 +232,16 @@ class Database:
     def save_workflow_message(self, phone_number: str, message_data: Dict[str, Any], collection_name: str):
         """Save workflow message to database"""
         try:
-            logger.debug(f"Saving workflow message for phone: {phone_number}")
+            # Normalize phone number to expected format
+            normalized_phone = self._normalize_phone_number(phone_number)
+            logger.debug(f"Saving workflow message for phone: {normalized_phone}")
             messages_ref = self.db.collection(collection_name)
 
-            message_data["phone_number"] = phone_number
+            message_data["phone_number"] = normalized_phone
             message_data["timestamp"] = datetime.now()
 
             messages_ref.add(message_data)
-            logger.debug(f"Successfully saved workflow message for phone: {phone_number}")
+            logger.debug(f"Successfully saved workflow message for phone: {normalized_phone}")
             return True
         except Exception as e:
             logger.error(f"Error saving workflow message for phone {phone_number}: {str(e)}")
@@ -204,9 +250,11 @@ class Database:
     def get_workflow_messages(self, phone_number: str, collection_name: str) -> List[Dict[str, Any]]:
         """Get all workflow messages for a phone number"""
         try:
-            logger.debug(f"Getting workflow messages for phone: {phone_number}")
+            # Normalize phone number to expected format
+            normalized_phone = self._normalize_phone_number(phone_number)
+            logger.debug(f"Getting workflow messages for phone: {normalized_phone}")
             messages_ref = self.db.collection(collection_name)
-            q = messages_ref.where("phone_number", "==", phone_number)
+            q = messages_ref.where("phone_number", "==", normalized_phone)
             docs = list(q.stream())
             messages = []
             for doc in docs:
@@ -280,37 +328,30 @@ class Database:
 
     def find_cook_by_phone(self, phone_number: str) -> Optional[Dict[str, Any]]:
         """Find cook by WhatsApp phone number
-        
-        Handles phone number formats with country prefix:
-        - If number is without +91 prefix, tries both formats
-        - Database mostly stores numbers with +91 prefix
         """
         try:
             if not phone_number:
                 return None
-                
-            logger.debug(f"Searching for cook with phone number: {phone_number}")
+            
+            # Normalize phone number to expected format
+            normalized_phone = self._normalize_phone_number(phone_number)
+            logger.debug(f"Normalized phone number: {phone_number} -> {normalized_phone}")
+            
+            logger.debug(f"Searching for cook with phone number: {normalized_phone}")
             cook_ref = self.db.collection("cooks")
             
-            # Try original number first
-            q = cook_ref.where("whatsapp_number", "==", phone_number).limit(1)
+            # Search with normalized phone number
+            q = cook_ref.where("whatsapp_number", "==", normalized_phone).limit(1)
             docs = list(q.stream())
             
-            # If not found and doesn't have +91 prefix, try adding it
-            if not docs and not phone_number.startswith("+91"):
-                phone_with_prefix = f"+91{phone_number}"
-                logger.debug(f"Trying with +91 prefix: {phone_with_prefix}")
-                q = cook_ref.where("whatsapp_number", "==", phone_with_prefix).limit(1)
-                docs = list(q.stream())
-            
             if not docs:
-                logger.debug(f"No cook found with phone number: {phone_number}")
+                logger.debug(f"No cook found with phone number: {normalized_phone}")
                 return None
                 
             doc = docs[0]
             data = doc.to_dict()
             data["id"] = doc.id
-            logger.info(f"Found cook: {doc.id} for phone number: {phone_number}")
+            logger.info(f"Found cook: {doc.id} for phone number: {normalized_phone}")
             return data
             
         except Exception as e:
@@ -320,14 +361,16 @@ class Database:
     def save_cook_message(self, phone_number: str, message_data: Dict[str, Any]) -> bool:
         """Save cook assistant message to database"""
         try:
-            logger.debug(f"Saving cook assistant message for phone: {phone_number}")
+            # Normalize phone number to expected format
+            normalized_phone = self._normalize_phone_number(phone_number)
+            logger.debug(f"Saving cook assistant message for phone: {normalized_phone}")
             messages_ref = self.db.collection("cook_assistant_messages")
             
-            message_data["phone_number"] = phone_number
+            message_data["phone_number"] = normalized_phone
             message_data["timestamp"] = datetime.now()
             
             messages_ref.add(message_data)
-            logger.debug(f"Successfully saved cook assistant message for phone: {phone_number}")
+            logger.debug(f"Successfully saved cook assistant message for phone: {normalized_phone}")
             return True
         except Exception as e:
             logger.error(f"Error saving cook assistant message for phone {phone_number}: {str(e)}")
@@ -336,9 +379,11 @@ class Database:
     def get_cook_messages(self, phone_number: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Get recent cook assistant messages for a phone number"""
         try:
-            logger.debug(f"Getting cook assistant messages for phone: {phone_number}")
+            # Normalize phone number to expected format
+            normalized_phone = self._normalize_phone_number(phone_number)
+            logger.debug(f"Getting cook assistant messages for phone: {normalized_phone}")
             messages_ref = self.db.collection("cook_assistant_messages")
-            q = messages_ref.where("phone_number", "==", phone_number)
+            q = messages_ref.where("phone_number", "==", normalized_phone)
             docs = list(q.stream())
             
             messages = []
@@ -353,7 +398,7 @@ class Database:
             # Get last N messages
             messages = messages[-limit:]
             
-            logger.debug(f"Retrieved {len(messages)} cook assistant messages for phone: {phone_number}")
+            logger.debug(f"Retrieved {len(messages)} cook assistant messages for phone: {normalized_phone}")
             return messages
         except Exception as e:
             logger.error(f"Error getting cook assistant messages for phone {phone_number}: {str(e)}")
