@@ -59,14 +59,15 @@ class CookAssistantService:
                     session_id=session_id,
                     context=context
                 )
+                response = self._format_msg_for_whatsapp(response_text)
             except Exception as e:
                 logger.error(f"Error invoking bedrock agent: {str(e)}")
-                response_text = "I'm sorry, I encountered an error. Please try again."
+                response = "I'm sorry, I encountered an error. Please try again."
             
             # Save bot response to Firebase for audit/compliance
-            self._save_message(phone_number, "bot", response_text)
+            self._save_message(phone_number, "bot", response)
             
-            return {"reply": response_text}
+            return {"reply": response}
             
         except Exception as e:
             logger.error(f"Error processing cook message: {str(e)}")
@@ -153,6 +154,11 @@ class CookAssistantService:
         except Exception as e:
             logger.error(f"Error saving cook message: {str(e)}")
 
+    def _format_msg_for_whatsapp(self, msg: str) -> str:
+        """Format message for WhatsApp"""
+        # Replace literal \n strings (from JSON-encoded responses) with \r for WhatsApp line breaks
+        # Also handle actual newline characters as fallback
+        return msg.replace("\\n", "\r").replace("\n", "\r")
 
 # Create singleton instance
 cook_assistant_service = CookAssistantService()
