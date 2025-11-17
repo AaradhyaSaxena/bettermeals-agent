@@ -4,6 +4,7 @@ from ...graph.service import graph_service
 from ...graph.onboarding import onboarding_service
 from ...graph.weekly_plan import weekly_plan_service
 from ...graph.cook_assistant import cook_assistant_service
+from ...graph.user_agent import user_agent_service
 
 router = APIRouter()
 
@@ -32,17 +33,4 @@ async def whatsapp_webhook(req: dict, graph=Depends(get_graph)):
     if not weekly_plan_locked:
         return weekly_plan_service.process_weekly_plan_message(req, household_data)
     
-    return {
-        "reply": "Hi, How can I help you today?"
-    }
-    # text, household_id, sender_role = WebhookProcessor.extract_payload_data(req)
-    # state_in, config = WebhookProcessor.build_graph_input(text, household_id, sender_role)
-    # final = await graph.ainvoke(state_in, config)
-    
-    # messages = final.get("messages", [])
-    # WebhookProcessor.debug_print_messages(messages)
-    # last_message = WebhookProcessor.extract_last_ai_message(messages)
-    
-    # response = WebhookProcessor.build_response(last_message, final)
-    # print(f"Response: {response}")
-    # return response
+    return await user_agent_service.process_messages(req)

@@ -32,7 +32,7 @@ class Database:
         try:
             logger.debug(f"Searching for user with phone number: {phone_number}")
             users_ref = self.db.collection("user")
-            q = users_ref.where("whatsappNumber", "==", phone_number).limit(1)
+            q = users_ref.where("phone_number", "==", phone_number).limit(1)
             docs = list(q.stream())
             
             if not docs:
@@ -68,6 +68,22 @@ class Database:
         except Exception as e:
             logger.error(f"Error retrieving household data for ID {household_id}: {str(e)}")
             raise
+
+    def save_user_message(self, phone_number: str, message_data: Dict[str, Any]) -> bool:
+        """Save user agent message to database"""
+        try:
+            logger.debug(f"Saving user agent message for phone: {phone_number}")
+            messages_ref = self.db.collection("user_agent_messages")
+            
+            message_data["phone_number"] = phone_number
+            message_data["timestamp"] = datetime.now()
+            
+            messages_ref.add(message_data)
+            logger.debug(f"Successfully saved user agent message for phone: {phone_number}")
+            return True
+        except Exception as e:
+            logger.error(f"Error saving user agent message for phone {phone_number}: {str(e)}")
+            return False
 
     def update_household_data(self, household_id: str, data: dict):
         """Update household data"""
